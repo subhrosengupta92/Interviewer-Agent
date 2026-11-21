@@ -1,4 +1,4 @@
-import { VOICES } from "../../src/lib/voices";
+import { LANGUAGES, VOICES } from "../../src/lib/voices";
 
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
@@ -60,4 +60,9 @@ export function previewVoice(voiceId: string, button: HTMLButtonElement) {
 export function fillVoices(select: HTMLSelectElement, selected?: string) {
   select.innerHTML = VOICES.map((v) => `<option value="${esc(v.id)}">${esc(v.label)}</option>`).join("");
   select.value = VOICES.some((v) => v.id === selected) ? selected! : VOICES[0].id;
+}
+
+export function fillLanguages(select: HTMLSelectElement, selected?: string) {
+  select.innerHTML = LANGUAGES.map((l) => `<option value="${l.code}">${esc(l.label)}</option>`).join("");
+  select.value = LANGUAGES.some((l) => l.code === selected) ? selected! : LANGUAGES[0].code;
 }

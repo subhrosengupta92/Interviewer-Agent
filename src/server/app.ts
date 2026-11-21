@@ -5,7 +5,7 @@ import { enforceEvidence } from "../lib/quotes";
 import { finaliseScore } from "../lib/scoring";
 import type { Store } from "../lib/store";
 import type { Interview } from "../lib/types";
-import { VOICES, previewLine, voiceById } from "../lib/voices";
+import { LANGUAGES, VOICES, languageByCode, previewLine, voiceById } from "../lib/voices";
 import { ValidationError, validateInput, validatePlan, validateReport } from "../lib/validate";
 
 export interface Deps {
@@ -217,6 +217,7 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
         status: iv.status,
         interviewer_name: voice.name,
         voice_id: voice.id,
+        language: languageByCode(iv.input.language).code,
       });
     }
 
@@ -224,7 +225,8 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
       if (!["ready", "in_progress", "too_short"].includes(iv.status))
         return fail(409, iv.status === "planning" ? "This interview is still being prepared." : "This interview has already been completed.");
       // WebRTC by default; the browser asks for a WebSocket session if WebRTC cannot connect on its network.
-      const body = (await request.json().catch(() => ({}))) as { transport?: string; voice_id?: string };
+      const body = (await request.json().catch(() => ({}))) as { transport?: string; voice_id?: string; language?: string };
+      const language = LANGUAGES.find((l) => l.code === body.language) ?? languageByCode(iv.input.language);
       // A voice passed with the request (the test switcher) wins over the one chosen at setup.
       const voice = VOICES.find((v) => v.id === body.voice_id) ?? voiceById(iv.input.voice_id);
       const transport = body.transport === "websocket" ? "websocket" : "webrtc";
@@ -238,9 +240,12 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
         token,
         signed_url,
         voice_id: voice.id,
+        language: language.code,
         variables: {
           interview_id: iv.id,
           interviewer_name: voice.name,
+          interviewer_gender: voice.gender,
+          interview_language: language.instruction,
           candidate_first_name: firstName(iv),
           role_title: iv.input.role_title,
           minutes: iv.input.minutes,

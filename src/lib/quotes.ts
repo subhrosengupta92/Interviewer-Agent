@@ -2,12 +2,13 @@ import type { Report, Turn } from "./types";
 
 const MIN_WORDS = 4;
 
-/** Lower-case, strip punctuation, collapse whitespace, so transcription quirks do not break matching. */
+/** Lower-case, strip punctuation, collapse whitespace, so transcription quirks do not break matching. Works for any script. */
 export function normalise(text: string): string {
   return text
     .toLowerCase()
     .replace(/[‘’]/g, "'")
-    .replace(/[^a-z0-9' ]+/g, " ")
+    // Keep letters, combining marks (Devanagari vowel signs) and digits of any script.
+    .replace(/[^\p{L}\p{M}\p{N}' ]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

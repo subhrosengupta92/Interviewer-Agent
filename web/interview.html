@@ -36,9 +36,11 @@
       <div class="actions" style="margin-top:10px"><button type="button" class="secondary" id="mic-test">Test my microphone</button><span id="mic-ok" class="small muted" role="status"></span></div>
     </div>
     <div class="card" id="voice-test" hidden>
-      <h3>Interviewer voice <span class="hint">test mode</span></h3>
-      <p class="hint">Pick a voice for this call. Candidates do not see this; it appears only when the link ends in <code>&amp;test=1</code>.</p>
+      <h3>Voice and language <span class="hint">test mode</span></h3>
+      <p class="hint">Pick a voice and language for this call. Candidates do not see this; it appears only when the link ends in <code>&amp;test=1</code>.</p>
       <div class="linkbox"><select id="voice_id" aria-label="Interviewer voice"></select><button type="button" class="quiet" id="voice-preview">Listen</button></div>
+      <label for="language">Interview language</label>
+      <select id="language"></select>
     </div>
     <label class="check"><input type="checkbox" id="consent"><span>I understand this conversation is with an AI, that it is recorded and transcribed, and that the hiring team will review it.</span></label>
     <div id="lobby-error" class="error" role="alert" hidden></div>

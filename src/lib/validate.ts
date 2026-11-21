@@ -1,4 +1,4 @@
-import { VOICES } from "./voices";
+import { LANGUAGES, VOICES } from "./voices";
 import type { ClaimVerdict, HardBarStatus, InterviewInput, Plan, Report } from "./types";
 
 export class ValidationError extends Error {}
@@ -50,6 +50,7 @@ export function validateInput(raw: unknown): InterviewInput {
     ...(str(hb.other) ? { other: str(hb.other) } : {}),
   };
   const voice = VOICES.find((v) => v.id === r.voice_id);
+  const language = LANGUAGES.find((l) => l.code === r.language);
   return {
     candidate_name,
     role_title,
@@ -59,6 +60,7 @@ export function validateInput(raw: unknown): InterviewInput {
     hard_bars,
     minutes: minutes as 10 | 30,
     ...(voice ? { voice_id: voice.id } : {}),
+    ...(language && language.code !== "en" ? { language: language.code } : {}),
   };
 }
 

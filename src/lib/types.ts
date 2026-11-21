@@ -23,6 +23,8 @@ export interface InterviewInput {
   minutes: 10 | 30;
   /** Which voice the interviewer uses; absent on older interviews. */
   voice_id?: string;
+  /** Language the interview is held in; English when absent. */
+  language?: "en" | "hi";
 }
 
 export interface PlanClaim {

@@ -180,6 +180,8 @@ describe("candidate routes", () => {
     expect(s.body.variables).toEqual({
       interview_id: id,
       interviewer_name: "Tripti",
+      interviewer_gender: "female",
+      interview_language: "English",
       candidate_first_name: "Asha",
       role_title: "SDE 1",
       minutes: 30,
@@ -222,6 +224,25 @@ describe("voices", () => {
     expect(b.body).toMatchObject({ voice_id: "OUBnvvuqEKdDWtapoJFn", variables: { interviewer_name: "Tia" } });
     const c = await call("POST", `/interviews/${body.id}/session`, { voice_id: "someone-elses-voice" });
     expect(c.body.voice_id).toBe("x3gYeuNB0kLLYxOZsaSh");
+  });
+});
+
+describe("language", () => {
+  it("holds the interview in the language chosen at setup, with a per-call override for testing", async () => {
+    const { body } = await call("POST", "/interviews", { ...input, language: "hi", voice_id: "x3gYeuNB0kLLYxOZsaSh" });
+    eleven.reply(eleven.lastJob().id, JSON.stringify(plan));
+    await call("GET", `/interviews/${body.id}`);
+    expect((await call("GET", `/interviews/${body.id}/candidate`)).body.language).toBe("hi");
+    const a = await call("POST", `/interviews/${body.id}/session`);
+    expect(a.body.language).toBe("hi");
+    expect(a.body.variables.interview_language).toMatch(/^Hindi/);
+    expect(a.body.variables.interviewer_gender).toBe("male");
+    const b = await call("POST", `/interviews/${body.id}/session`, { language: "en" });
+    expect(b.body).toMatchObject({ language: "en", variables: { interview_language: "English" } });
+  });
+  it("defaults to English and ignores unknown languages", async () => {
+    const { body } = await call("POST", "/interviews", { ...input, language: "fr" });
+    expect((await d.store.get(body.id))!.input.language).toBeUndefined();
   });
 });
 

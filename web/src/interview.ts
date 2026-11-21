@@ -1,7 +1,7 @@
 import { Conversation } from "@elevenlabs/client";
 import { timeUpdate } from "../../src/lib/time";
 import { voiceById } from "../../src/lib/voices";
-import { $, api, ApiError, clock, fillVoices, idFromUrl, previewVoice } from "./common";
+import { $, api, ApiError, clock, fillLanguages, fillVoices, idFromUrl, previewVoice } from "./common";
 
 const id = idFromUrl();
 const sections = ["loading", "unavailable", "lobby", "call", "done"];
@@ -52,6 +52,7 @@ async function load() {
       fillVoices(select, c.voice_id);
       select.addEventListener("change", () => setInterviewerName(voiceById(select.value).name));
       $("#voice-preview").addEventListener("click", (e) => previewVoice(select.value, e.currentTarget as HTMLButtonElement));
+      fillLanguages($("#language") as HTMLSelectElement, c.language);
       $("#voice-test").hidden = false;
     }
     show("lobby");
@@ -161,6 +162,7 @@ async function start() {
     show("call");
     setMode("connecting");
     const chosenVoice = testMode ? ($("#voice_id") as HTMLSelectElement).value : undefined;
+    const chosenLanguage = testMode ? ($("#language") as HTMLSelectElement).value : undefined;
     const callbacks = {
       onConnect: () => {
         startedAt = Date.now();
@@ -186,23 +188,23 @@ async function start() {
       },
     };
     try {
-      const session = await api(`/interviews/${id}/session`, "POST", { transport: "webrtc", voice_id: chosenVoice });
+      const session = await api(`/interviews/${id}/session`, "POST", { transport: "webrtc", voice_id: chosenVoice, language: chosenLanguage });
       conversation = await Conversation.startSession({
         conversationToken: session.token,
         connectionType: "webrtc",
         dynamicVariables: session.variables,
-        overrides: { tts: { voiceId: session.voice_id } },
+        overrides: { tts: { voiceId: session.voice_id }, agent: { language: session.language } },
         ...callbacks,
       });
     } catch (first) {
       if (first instanceof ApiError) throw first;
       // Some office networks block WebRTC media. A WebSocket session works wherever the page itself loads.
-      const session = await api(`/interviews/${id}/session`, "POST", { transport: "websocket", voice_id: chosenVoice });
+      const session = await api(`/interviews/${id}/session`, "POST", { transport: "websocket", voice_id: chosenVoice, language: chosenLanguage });
       conversation = await Conversation.startSession({
         signedUrl: session.signed_url,
         connectionType: "websocket",
         dynamicVariables: session.variables,
-        overrides: { tts: { voiceId: session.voice_id } },
+        overrides: { tts: { voiceId: session.voice_id }, agent: { language: session.language } },
         ...callbacks,
       });
     }

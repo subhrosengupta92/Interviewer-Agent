@@ -22,6 +22,11 @@ describe("quoteInTranscript", () => {
     expect(quoteInTranscript("i wrote the back off   scheduler", turns)).toBe(true);
     expect(quoteInTranscript("it fell from 4% to 1.5%", turns)).toBe(true);
   });
+  it("matches Hindi quotes, including mixed Hindi and English", () => {
+    const hi = [{ role: "candidate" as const, text: "मैंने reconciliation job खुद बनाया था, Spring Batch में।" }];
+    expect(quoteInTranscript("मैंने reconciliation job खुद बनाया था", hi)).toBe(true);
+    expect(quoteInTranscript("मैंने पूरा system अकेले बनाया", hi)).toBe(false);
+  });
   it("only matches what the candidate said", () => {
     expect(quoteInTranscript("Which part of the retry service did you own", turns)).toBe(false);
   });

@@ -91,6 +91,8 @@ try {
     dynamic_variables: {
       interview_id: id,
       interviewer_name: "Maya",
+      interviewer_gender: "female",
+      interview_language: "English",
       candidate_first_name: "Rohan",
       role_title: demoScenario.role_title,
       minutes: demoScenario.minutes,

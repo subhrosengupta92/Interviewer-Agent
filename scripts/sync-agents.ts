@@ -5,12 +5,13 @@
 import { writeFileSync } from "node:fs";
 import {
   INTERVIEWER_FIRST_MESSAGE,
+  INTERVIEWER_FIRST_MESSAGE_HI,
   INTERVIEWER_MODEL,
   INTERVIEWER_PROMPT,
   INTERVIEWER_VOICE_ID,
 } from "../agents/interviewer";
 import { PLANNER_MODEL, PLANNER_PROMPT } from "../agents/planner";
-import { DEFAULT_VOICE } from "../src/lib/voices";
+import { DEFAULT_VOICE, LANGUAGES } from "../src/lib/voices";
 import { SCORER_MODEL, SCORER_PROMPT } from "../agents/scorer";
 import { el } from "./eleven-admin";
 
@@ -108,9 +109,13 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
     vad: { background_voice_detection: true },
     tts: { voice_id: INTERVIEWER_VOICE_ID, speed: 1.03, expressive_mode: true },
     conversation: { max_duration_seconds: 35 * 60 },
+    // Hindi interviews: same agent, Hindi speech recognition and voice, and a Hindi greeting.
+    language_presets: { hi: { overrides: { agent: { language: "hi", first_message: INTERVIEWER_FIRST_MESSAGE_HI } } } },
     agent: {
       first_message: INTERVIEWER_FIRST_MESSAGE,
       language: "en",
+      // In Hindi, keep English technical words in the speech instead of forcing pure Hindi.
+      hinglish_mode: true,
       disable_first_message_interruptions: true,
       max_conversation_duration_message:
         "We're out of time, so I'll stop here. Thank you for speaking with me today; the hiring team will be in touch about next steps. Goodbye.",
@@ -118,6 +123,8 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
         dynamic_variable_placeholders: {
           interview_id: "missing",
           interviewer_name: DEFAULT_VOICE.name,
+          interviewer_gender: DEFAULT_VOICE.gender,
+          interview_language: LANGUAGES[0].instruction,
           candidate_first_name: "there",
           role_title: "open",
           minutes: 30,
@@ -141,8 +148,8 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
   },
   platform_settings: {
     auth: { enable_auth: true },
-    // The browser may choose the voice for a call; nothing else about the agent can be overridden.
-    overrides: { conversation_config_override: { tts: { voice_id: true } } },
+    // The browser may choose the voice and language for a call; nothing else about the agent can be overridden.
+    overrides: { conversation_config_override: { tts: { voice_id: true }, agent: { language: true } } },
   },
 });
 

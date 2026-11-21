@@ -1,6 +1,6 @@
 import { demoScenario } from "../../demo/scenario";
 import type { Competency, InterviewInput, Plan } from "../../src/lib/types";
-import { $, api, esc, fillVoices, idFromUrl, previewVoice } from "./common";
+import { $, api, esc, fillLanguages, fillVoices, idFromUrl, previewVoice } from "./common";
 
 const comps = $("#comps");
 
@@ -42,6 +42,7 @@ function read(): unknown {
     job_description: val("#job_description"),
     minutes: Number(val("#minutes")),
     voice_id: val("#voice_id"),
+    language: val("#language"),
     hard_bars: { compensation_budget: val("#hb_comp"), location: val("#hb_loc"), other: val("#hb_other") },
     competencies: [...comps.querySelectorAll(".comp")].map((r) => ({
       name: (r.querySelector(".name") as HTMLInputElement).value,
@@ -167,6 +168,7 @@ async function showResult(id: string) {
 }
 
 fillVoices($("#voice_id") as HTMLSelectElement);
+fillLanguages($("#language") as HTMLSelectElement);
 $("#voice-preview").addEventListener("click", (e) =>
   previewVoice(($("#voice_id") as HTMLSelectElement).value, e.currentTarget as HTMLButtonElement),
 );
