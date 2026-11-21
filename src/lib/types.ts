@@ -21,6 +21,8 @@ export interface InterviewInput {
   competencies: Competency[];
   hard_bars: HardBars;
   minutes: 10 | 30;
+  /** Which voice the interviewer uses; absent on older interviews. */
+  voice_id?: string;
 }
 
 export interface PlanClaim {

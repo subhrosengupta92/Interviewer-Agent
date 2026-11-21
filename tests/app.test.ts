@@ -47,6 +47,9 @@ class FakeEleven implements Eleven {
     const conversation_id = `conv_${++this.n}`;
     return transport === "websocket" ? { signed_url: "wss://x", conversation_id } : { token: "tok", conversation_id };
   }
+  async speak(voiceId: string, text: string) {
+    return new TextEncoder().encode(`${voiceId}:${text}`).buffer as ArrayBuffer;
+  }
   reply(id: string, text: string) {
     this.convs.set(id, { status: "done", turns: [{ role: "agent", text }], duration_secs: 0 });
   }
@@ -174,7 +177,13 @@ describe("candidate routes", () => {
     const s = await call("POST", `/interviews/${id}/session`);
     const text = JSON.stringify([c.body, s.body]);
     expect(text).not.toMatch(/18 LPA|retry service|Finlo|Mumbai/);
-    expect(s.body.variables).toEqual({ interview_id: id, candidate_first_name: "Asha", role_title: "SDE 1", minutes: 30 });
+    expect(s.body.variables).toEqual({
+      interview_id: id,
+      interviewer_name: "Tripti",
+      candidate_first_name: "Asha",
+      role_title: "SDE 1",
+      minutes: 30,
+    });
     expect(s.body.token).toBe("tok");
   });
   it("issue a WebSocket session on request, and count only the call that happened", async () => {
@@ -190,6 +199,29 @@ describe("candidate routes", () => {
   it("refuse a session before the plan is ready and after the report is done", async () => {
     const { body } = await call("POST", "/interviews", input);
     expect((await call("POST", `/interviews/${body.id}/session`)).status).toBe(409);
+  });
+});
+
+describe("voices", () => {
+  it("lists the voices and serves a cached preview only for a listed voice", async () => {
+    const list = await call("GET", "/voices");
+    expect(list.body.voices.length).toBeGreaterThan(3);
+    const ok = await handleApi(new Request(`https://x.test/api/voices/${list.body.voices[0].id}/preview`), d);
+    expect(ok.headers.get("content-type")).toBe("audio/mpeg");
+    expect(await ok.text()).toContain("I'm Tripti");
+    expect((await call("GET", "/voices/not-a-voice/preview")).status).toBe(404);
+  });
+  it("uses the voice chosen at setup, and lets the test switcher override it for one call", async () => {
+    const { body } = await call("POST", "/interviews", { ...input, voice_id: "x3gYeuNB0kLLYxOZsaSh" });
+    eleven.reply(eleven.lastJob().id, JSON.stringify(plan));
+    await call("GET", `/interviews/${body.id}`);
+    expect((await call("GET", `/interviews/${body.id}/candidate`)).body.interviewer_name).toBe("Shrey");
+    const a = await call("POST", `/interviews/${body.id}/session`);
+    expect(a.body).toMatchObject({ voice_id: "x3gYeuNB0kLLYxOZsaSh", variables: { interviewer_name: "Shrey" } });
+    const b = await call("POST", `/interviews/${body.id}/session`, { voice_id: "OUBnvvuqEKdDWtapoJFn" });
+    expect(b.body).toMatchObject({ voice_id: "OUBnvvuqEKdDWtapoJFn", variables: { interviewer_name: "Tia" } });
+    const c = await call("POST", `/interviews/${body.id}/session`, { voice_id: "someone-elses-voice" });
+    expect(c.body.voice_id).toBe("x3gYeuNB0kLLYxOZsaSh");
   });
 });
 

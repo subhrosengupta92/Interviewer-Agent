@@ -24,7 +24,7 @@
     <div class="card">
       <h3>How it works</h3>
       <ul class="tight">
-        <li>You will speak with Maya, an AI interviewer. It is a conversation, not a quiz.</li>
+        <li>You will speak with <span class="iname">your interviewer</span>, an AI interviewer. It is a conversation, not a quiz.</li>
         <li>Take your time. If you need a moment to think, just say so.</li>
         <li>Use a quiet room and, if you can, headphones.</li>
       </ul>
@@ -34,6 +34,11 @@
       <p class="hint" id="mic-text">Allow microphone access, then say a few words. The bar should move.</p>
       <div class="meter" aria-hidden="true"><i id="mic-level"></i></div>
       <div class="actions" style="margin-top:10px"><button type="button" class="secondary" id="mic-test">Test my microphone</button><span id="mic-ok" class="small muted" role="status"></span></div>
+    </div>
+    <div class="card" id="voice-test" hidden>
+      <h3>Interviewer voice <span class="hint">test mode</span></h3>
+      <p class="hint">Pick a voice for this call. Candidates do not see this; it appears only when the link ends in <code>&amp;test=1</code>.</p>
+      <div class="linkbox"><select id="voice_id" aria-label="Interviewer voice"></select><button type="button" class="quiet" id="voice-preview">Listen</button></div>
     </div>
     <label class="check"><input type="checkbox" id="consent"><span>I understand this conversation is with an AI, that it is recorded and transcribed, and that the hiring team will review it.</span></label>
     <div id="lobby-error" class="error" role="alert" hidden></div>
@@ -47,7 +52,7 @@
       <div class="timer"><span id="elapsed">0:00</span> of about <span id="total"></span> min</div>
       <div id="call-error" class="error" role="alert" hidden></div>
       <div class="actions" style="justify-content:center"><button type="button" class="secondary" id="end">End interview</button></div>
-      <p class="small muted" style="margin-top:18px">Need to think? Say "give me a moment". Maya will wait.</p>
+      <p class="small muted" style="margin-top:18px">Need to think? Say "give me a moment". <span class="iname">Your interviewer</span> will wait.</p>
     </div>
   </section>
 

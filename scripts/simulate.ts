@@ -90,6 +90,7 @@ try {
     agent: { type: "persisted", agent_id: ids.interviewer },
     dynamic_variables: {
       interview_id: id,
+      interviewer_name: "Maya",
       candidate_first_name: "Rohan",
       role_title: demoScenario.role_title,
       minutes: demoScenario.minutes,

@@ -1,6 +1,7 @@
 import { Conversation } from "@elevenlabs/client";
 import { timeUpdate } from "../../src/lib/time";
-import { $, api, ApiError, clock, idFromUrl } from "./common";
+import { voiceById } from "../../src/lib/voices";
+import { $, api, ApiError, clock, fillVoices, idFromUrl, previewVoice } from "./common";
 
 const id = idFromUrl();
 const sections = ["loading", "unavailable", "lobby", "call", "done"];
@@ -11,7 +12,14 @@ const MIN_CALL_SECS = 120;
 /** The agent closes the call itself; this is a backstop if it runs well over. */
 const OVERRUN_MINUTES = 4;
 
+const testMode = new URLSearchParams(location.search).get("test") === "1";
 let minutes = 30;
+let interviewerName = "Your interviewer";
+
+function setInterviewerName(name: string) {
+  interviewerName = name;
+  document.querySelectorAll(".iname").forEach((el) => (el.textContent = name));
+}
 let conversation: Awaited<ReturnType<typeof Conversation.startSession>> | null = null;
 let startedAt = 0;
 let ticker: number | undefined;
@@ -38,6 +46,14 @@ async function load() {
     $("#hello").textContent = `Hello ${c.first_name}`;
     $("#intro").textContent = `This is your first-round interview for the ${c.role_title} role. It takes about ${c.minutes} minutes.`;
     $("#total").textContent = String(c.minutes);
+    setInterviewerName(c.interviewer_name);
+    if (testMode) {
+      const select = $("#voice_id") as HTMLSelectElement;
+      fillVoices(select, c.voice_id);
+      select.addEventListener("change", () => setInterviewerName(voiceById(select.value).name));
+      $("#voice-preview").addEventListener("click", (e) => previewVoice(select.value, e.currentTarget as HTMLButtonElement));
+      $("#voice-test").hidden = false;
+    }
     show("lobby");
   } catch (e) {
     unavailable(
@@ -97,7 +113,7 @@ function setMode(mode: "speaking" | "listening" | "connecting") {
   const orb = $("#orb");
   orb.classList.toggle("speaking", mode === "speaking");
   orb.classList.toggle("listening", mode === "listening");
-  $("#who").textContent = mode === "speaking" ? "Maya is speaking" : mode === "listening" ? "Listening to you" : "Connecting…";
+  $("#who").textContent = mode === "speaking" ? `${interviewerName} is speaking` : mode === "listening" ? "Listening to you" : "Connecting…";
 }
 
 async function finish(reason: string) {
@@ -144,6 +160,7 @@ async function start() {
   try {
     show("call");
     setMode("connecting");
+    const chosenVoice = testMode ? ($("#voice_id") as HTMLSelectElement).value : undefined;
     const callbacks = {
       onConnect: () => {
         startedAt = Date.now();
@@ -169,21 +186,23 @@ async function start() {
       },
     };
     try {
-      const session = await api(`/interviews/${id}/session`, "POST", { transport: "webrtc" });
+      const session = await api(`/interviews/${id}/session`, "POST", { transport: "webrtc", voice_id: chosenVoice });
       conversation = await Conversation.startSession({
         conversationToken: session.token,
         connectionType: "webrtc",
         dynamicVariables: session.variables,
+        overrides: { tts: { voiceId: session.voice_id } },
         ...callbacks,
       });
     } catch (first) {
       if (first instanceof ApiError) throw first;
       // Some office networks block WebRTC media. A WebSocket session works wherever the page itself loads.
-      const session = await api(`/interviews/${id}/session`, "POST", { transport: "websocket" });
+      const session = await api(`/interviews/${id}/session`, "POST", { transport: "websocket", voice_id: chosenVoice });
       conversation = await Conversation.startSession({
         signedUrl: session.signed_url,
         connectionType: "websocket",
         dynamicVariables: session.variables,
+        overrides: { tts: { voiceId: session.voice_id } },
         ...callbacks,
       });
     }

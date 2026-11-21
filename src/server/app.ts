@@ -5,6 +5,7 @@ import { enforceEvidence } from "../lib/quotes";
 import { finaliseScore } from "../lib/scoring";
 import type { Store } from "../lib/store";
 import type { Interview } from "../lib/types";
+import { VOICES, previewLine, voiceById } from "../lib/voices";
 import { ValidationError, validateInput, validatePlan, validateReport } from "../lib/validate";
 
 export interface Deps {
@@ -151,6 +152,16 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
       return fail(404, "Not found");
     }
 
+    if (parts[0] === "voices" && method === "GET") {
+      if (!parts[1]) return json({ voices: VOICES.map(({ id, label }) => ({ id, label })) });
+      const voice = VOICES.find((v) => v.id === parts[1]);
+      if (!voice || parts[2] !== "preview") return fail(404, "Not found");
+      // Same line every time, so the response can be cached for a long while.
+      return new Response(await d.eleven.speak(voice.id, previewLine(voice)), {
+        headers: { "content-type": "audio/mpeg", "cache-control": "public, max-age=2592000, immutable" },
+      });
+    }
+
     if (parts[0] !== "interviews") return fail(404, "Not found");
 
     if (parts.length === 1 && method === "POST") {
@@ -198,14 +209,24 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
 
     // Candidate-facing routes below: never return the plan, the CV or the hard bars.
     if (action === "candidate" && method === "GET") {
-      return json({ first_name: firstName(iv), role_title: iv.input.role_title, minutes: iv.input.minutes, status: iv.status });
+      const voice = voiceById(iv.input.voice_id);
+      return json({
+        first_name: firstName(iv),
+        role_title: iv.input.role_title,
+        minutes: iv.input.minutes,
+        status: iv.status,
+        interviewer_name: voice.name,
+        voice_id: voice.id,
+      });
     }
 
     if (action === "session" && method === "POST") {
       if (!["ready", "in_progress", "too_short"].includes(iv.status))
         return fail(409, iv.status === "planning" ? "This interview is still being prepared." : "This interview has already been completed.");
       // WebRTC by default; the browser asks for a WebSocket session if WebRTC cannot connect on its network.
-      const body = (await request.json().catch(() => ({}))) as { transport?: string };
+      const body = (await request.json().catch(() => ({}))) as { transport?: string; voice_id?: string };
+      // A voice passed with the request (the test switcher) wins over the one chosen at setup.
+      const voice = VOICES.find((v) => v.id === body.voice_id) ?? voiceById(iv.input.voice_id);
       const transport = body.transport === "websocket" ? "websocket" : "webrtc";
       const { token, signed_url, conversation_id } = await d.eleven.getSession(d.agents.interviewer, transport);
       if (conversation_id) iv.conversation_ids.push(conversation_id);
@@ -216,8 +237,10 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
         transport,
         token,
         signed_url,
+        voice_id: voice.id,
         variables: {
           interview_id: iv.id,
+          interviewer_name: voice.name,
           candidate_first_name: firstName(iv),
           role_title: iv.input.role_title,
           minutes: iv.input.minutes,

@@ -10,6 +10,7 @@ import {
   INTERVIEWER_VOICE_ID,
 } from "../agents/interviewer";
 import { PLANNER_MODEL, PLANNER_PROMPT } from "../agents/planner";
+import { DEFAULT_VOICE } from "../src/lib/voices";
 import { SCORER_MODEL, SCORER_PROMPT } from "../agents/scorer";
 import { el } from "./eleven-admin";
 
@@ -107,6 +108,7 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
       dynamic_variables: {
         dynamic_variable_placeholders: {
           interview_id: "missing",
+          interviewer_name: DEFAULT_VOICE.name,
           candidate_first_name: "there",
           role_title: "open",
           minutes: 30,
@@ -128,7 +130,11 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
       },
     },
   },
-  platform_settings: { auth: { enable_auth: true } },
+  platform_settings: {
+    auth: { enable_auth: true },
+    // The browser may choose the voice for a call; nothing else about the agent can be overridden.
+    overrides: { conversation_config_override: { tts: { voice_id: true } } },
+  },
 });
 
 const ids = { planner, interviewer, scorer };

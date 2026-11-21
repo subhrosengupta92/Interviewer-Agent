@@ -1,3 +1,4 @@
+import { VOICES } from "./voices";
 import type { ClaimVerdict, HardBarStatus, InterviewInput, Plan, Report } from "./types";
 
 export class ValidationError extends Error {}
@@ -48,7 +49,17 @@ export function validateInput(raw: unknown): InterviewInput {
     ...(str(hb.location) ? { location: str(hb.location) } : {}),
     ...(str(hb.other) ? { other: str(hb.other) } : {}),
   };
-  return { candidate_name, role_title, cv_text, job_description, competencies, hard_bars, minutes: minutes as 10 | 30 };
+  const voice = VOICES.find((v) => v.id === r.voice_id);
+  return {
+    candidate_name,
+    role_title,
+    cv_text,
+    job_description,
+    competencies,
+    hard_bars,
+    minutes: minutes as 10 | 30,
+    ...(voice ? { voice_id: voice.id } : {}),
+  };
 }
 
 /** Normalises the Planner's output and makes sure every competency from the form has questions. */

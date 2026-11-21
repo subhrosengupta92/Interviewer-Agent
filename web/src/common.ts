@@ -1,3 +1,5 @@
+import { VOICES } from "../../src/lib/voices";
+
 export class ApiError extends Error {
   constructor(message: string, public status: number) {
     super(message);
@@ -31,4 +33,31 @@ export const idFromUrl = () => new URLSearchParams(location.search).get("id") ??
 export function clock(secs: number): string {
   const s = Math.max(0, Math.floor(secs));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
+let playing: HTMLAudioElement | null = null;
+
+/** Plays a short sample of a voice; a second click on the same button stops it. */
+export function previewVoice(voiceId: string, button: HTMLButtonElement) {
+  if (playing) {
+    playing.pause();
+    playing = null;
+    button.textContent = "Listen";
+    return;
+  }
+  const audio = new Audio(`/api/voices/${voiceId}/preview`);
+  playing = audio;
+  button.textContent = "Stop";
+  const done = () => {
+    if (playing === audio) playing = null;
+    button.textContent = "Listen";
+  };
+  audio.addEventListener("ended", done);
+  audio.addEventListener("error", done);
+  void audio.play().catch(done);
+}
+
+export function fillVoices(select: HTMLSelectElement, selected?: string) {
+  select.innerHTML = VOICES.map((v) => `<option value="${esc(v.id)}">${esc(v.label)}</option>`).join("");
+  select.value = VOICES.some((v) => v.id === selected) ? selected! : VOICES[0].id;
 }

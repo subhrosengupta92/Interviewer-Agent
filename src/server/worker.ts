@@ -28,10 +28,17 @@ const SECURITY = {
 };
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname.startsWith("/api/")) {
-      return handleApi(request, {
+      // Voice previews never change, so serve them from Cloudflare's cache after the first request.
+      const cacheable = request.method === "GET" && /^\/api\/voices\/[^/]+\/preview$/.test(url.pathname);
+      const cache = (caches as unknown as { default: Cache }).default;
+      if (cacheable) {
+        const hit = await cache.match(request);
+        if (hit) return hit;
+      }
+      const response = await handleApi(request, {
         store: new D1Store(env.DB),
         eleven: new ElevenClient(env.ELEVENLABS_API_KEY ?? ""),
         agents: ids,
@@ -39,6 +46,8 @@ export default {
         now: () => Date.now(),
         newId: () => crypto.randomUUID().replace(/-/g, ""),
       });
+      if (cacheable && response.ok) ctx.waitUntil(cache.put(request, response.clone()));
+      return response;
     }
     const path = PAGES[url.pathname.replace(/\/$/, "") || "/"] ?? url.pathname;
     const body = (ASSETS as Record<string, string>)[path];

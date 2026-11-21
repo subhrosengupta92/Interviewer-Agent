@@ -20,6 +20,8 @@ export interface Eleven {
   getConversation(conversationId: string): Promise<ConversationSnapshot>;
   /** Short-lived credential the browser uses to join a voice session: a WebRTC token or a WebSocket URL. */
   getSession(agentId: string, transport: Transport): Promise<SessionGrant>;
+  /** A short spoken sample, as MP3 bytes. */
+  speak(voiceId: string, text: string): Promise<ArrayBuffer>;
 }
 
 const BASE = "https://api.elevenlabs.io";
@@ -85,5 +87,16 @@ export class ElevenClient implements Eleven {
     // The signed URL carries the conversation ID as a query parameter rather than as its own field.
     const fromUrl = grant.signed_url ? new URL(grant.signed_url).searchParams.get("conversation_id") : null;
     return { ...grant, conversation_id: grant.conversation_id ?? fromUrl ?? undefined };
+  }
+
+  async speak(voiceId: string, text: string): Promise<ArrayBuffer> {
+    if (!this.apiKey) throw new MissingKeyError();
+    const res = await this.fetcher(`${BASE}/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_64`, {
+      method: "POST",
+      headers: { "xi-api-key": this.apiKey, "content-type": "application/json" },
+      body: JSON.stringify({ text, model_id: "eleven_flash_v2_5" }),
+    });
+    if (!res.ok) throw new Error(`ElevenLabs ${res.status} on text-to-speech: ${(await res.text()).slice(0, 300)}`);
+    return res.arrayBuffer();
   }
 }

@@ -1,6 +1,6 @@
 import { demoScenario } from "../../demo/scenario";
 import type { Competency, InterviewInput, Plan } from "../../src/lib/types";
-import { $, api, esc, idFromUrl } from "./common";
+import { $, api, esc, fillVoices, idFromUrl, previewVoice } from "./common";
 
 const comps = $("#comps");
 
@@ -28,6 +28,7 @@ function fill(s: InterviewInput) {
   ($("#hb_loc") as HTMLInputElement).value = s.hard_bars.location ?? "";
   ($("#hb_other") as HTMLInputElement).value = s.hard_bars.other ?? "";
   ($("#minutes") as HTMLSelectElement).value = String(s.minutes);
+  if (s.voice_id) ($("#voice_id") as HTMLSelectElement).value = s.voice_id;
   comps.innerHTML = "";
   s.competencies.forEach(addCompetency);
 }
@@ -40,6 +41,7 @@ function read(): unknown {
     cv_text: val("#cv_text"),
     job_description: val("#job_description"),
     minutes: Number(val("#minutes")),
+    voice_id: val("#voice_id"),
     hard_bars: { compensation_budget: val("#hb_comp"), location: val("#hb_loc"), other: val("#hb_other") },
     competencies: [...comps.querySelectorAll(".comp")].map((r) => ({
       name: (r.querySelector(".name") as HTMLInputElement).value,
@@ -164,6 +166,10 @@ async function showResult(id: string) {
   await tick();
 }
 
+fillVoices($("#voice_id") as HTMLSelectElement);
+$("#voice-preview").addEventListener("click", (e) =>
+  previewVoice(($("#voice_id") as HTMLSelectElement).value, e.currentTarget as HTMLButtonElement),
+);
 $("#load-demo").addEventListener("click", () => fill(demoScenario));
 $("#add-comp").addEventListener("click", () => addCompetency());
 $("#cv_file").addEventListener("change", (e) => {
