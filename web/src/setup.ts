@@ -86,7 +86,22 @@ async function readCvFile(file: File) {
 
 function renderPlan(plan: Plan) {
   const list = (items: string[]) => `<ul class="tight">${items.map((q) => `<li>${esc(q)}</li>`).join("")}</ul>`;
+  const sc = plan.scorecard;
+  const scorecard = sc
+    ? `<h2>What good looks like</h2>
+    <p class="hint">Written before the interview, from the role and its level. The interviewer probes for these signals and the report scores against them.</p>
+    <div class="card"><h3>The bar</h3><p>${esc(sc.bar)}</p>
+      ${sc.principles.length ? `<h3 style="margin-top:14px">How answers are read</h3>${list(sc.principles)}` : ""}</div>
+    ${sc.competencies
+      .map(
+        (c) => `<div class="card"><h3>${esc(c.name)}</h3>
+        <div class="kv" style="margin-top:8px"><strong>Strong</strong></div>${list(c.strong)}
+        ${c.weak.length ? `<div class="kv" style="margin-top:10px"><strong>Weak</strong></div>${list(c.weak)}` : ""}</div>`,
+      )
+      .join("")}`
+    : "";
   $("#plan").innerHTML = `
+    ${scorecard}
     <h2>Interview plan</h2>
     <div class="card"><h3>Claims the interviewer will probe</h3>
       ${plan.claims_to_probe

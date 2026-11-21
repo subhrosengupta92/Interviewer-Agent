@@ -42,7 +42,25 @@ export interface PlanHardBar {
   question: string;
 }
 
+/** What good looks like for one competency, at this role's level, written before the interview. */
+export interface CompetencyBar {
+  name: string;
+  strong: string[];
+  weak: string[];
+}
+
+/** The hiring manager's view of the role, fixed before anyone reads the transcript. */
+export interface Scorecard {
+  /** What a strong hire at this level would be doing six months in. */
+  bar: string;
+  competencies: CompetencyBar[];
+  /** How to read common situations fairly, e.g. AI coding tools, team projects, short tenure. */
+  principles: string[];
+}
+
 export interface Plan {
+  /** Absent on interviews planned before scorecards existed. */
+  scorecard?: Scorecard;
   opening: string;
   background_questions: string[];
   hard_bar_checks: PlanHardBar[];

@@ -8,6 +8,14 @@ import { timeGuidance, timeUpdate } from "../src/lib/time";
 import { input, report, turns } from "./fixtures";
 
 const plan: Plan = {
+  scorecard: {
+    bar: "Ships small backend features end to end within six months.",
+    competencies: [
+      { name: "System design", strong: ["Explains why a design choice was made"], weak: ["Names tools without trade-offs"] },
+      { name: "Ownership", strong: ["Precise about their own part"], weak: ["Says we throughout"] },
+    ],
+    principles: ["Using AI coding tools is fine; what matters is understanding what was shipped."],
+  },
   opening: "Thanks for your time.",
   background_questions: ["Tell me about your path so far."],
   hard_bar_checks: [{ id: "hb1", label: "Compensation", question: "What are your expectations?" }],
@@ -97,6 +105,18 @@ describe("prompts", () => {
     const m = scorerMessage(input, plan, turns);
     expect(m).toContain("18 LPA");
     expect(m).toContain("[2] CANDIDATE: I wrote the back-off scheduler");
+  });
+  it("gives the scorecard to both the Interviewer and the Scorer", () => {
+    for (const text of [interviewerBrief(input, plan), scorerMessage(input, plan, turns)]) {
+      expect(text).toContain("WHAT GOOD LOOKS LIKE FOR THIS ROLE");
+      expect(text).toContain("Strong evidence: Explains why a design choice was made");
+      expect(text).toContain("Using AI coding tools is fine");
+    }
+  });
+  it("still works for plans written before scorecards existed", () => {
+    const { scorecard: _, ...old } = plan;
+    expect(interviewerBrief(input, old)).toContain("CV claims to probe");
+    expect(scorerMessage(input, old, turns)).toContain("No scorecard was written");
   });
   it("names every competency for the Planner", () => {
     for (const c of input.competencies) expect(plannerMessage(input)).toContain(c.name);

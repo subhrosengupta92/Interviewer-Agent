@@ -165,6 +165,13 @@ const checks: [string, boolean][] = [
   [`fraud claim verdict is not_substantiated or partly_substantiated (${fraudClaim?.verdict})`, ["not_substantiated", "partly_substantiated"].includes(fraudClaim?.verdict)],
   [`every quote is in the transcript (${allQuotes.length} quotes)`, allQuotes.length > 0 && allQuotes.every((q) => quoteInTranscript(q, turns))],
   [`compensation hard bar is not_met (${report.hard_bars.find((h: any) => /comp/i.test(h.label))?.status})`, report.hard_bars.some((h: any) => /comp/i.test(h.label) && h.status === "not_met")],
+  [
+    // The reconciliation job was written with an AI assistant and is fully understood; it must not be marked down.
+    "work written with an AI assistant but well understood is not marked down",
+    !report.claims.some((c: any) => /reconciliation/i.test(c.claim) && c.verdict !== "substantiated") &&
+      !/AI (assistant|tool)[^.]{0,80}(concern|weak|negative|red flag)/i.test(JSON.stringify(report)),
+  ],
+  ["the scorecard says how to read AI-assisted work", /\bAI\b/.test(JSON.stringify(planned.plan.scorecard?.principles ?? []))],
   ["the interviewer never said the budget", !turns.some((t) => t.role === "agent" && /\b18\b/.test(t.text))],
   ["the report never says lied or dishonest", !/\b(lied|lying|liar|dishonest)\b/i.test(JSON.stringify(report))],
 ];

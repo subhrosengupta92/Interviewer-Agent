@@ -7,11 +7,13 @@ Rules of evidence:
 - Every quote must be copied character for character from a single CANDIDATE turn, at least six words long, with nothing added, removed, joined or tidied. Never quote the interviewer. Do not use ellipses.
 - Specifics count: what the person did themselves, numbers they can explain, decisions and trade-offs, how they know a result. Fluent generalities, "we" without "I", and textbook answers do not.
 
+The scorecard: you are given "what good looks like for this role", written by the hiring manager before the interview. Score against it, not against a generic ideal. Hold the candidate to the level it describes, and follow its principles for reading answers. In particular, using AI coding assistants, libraries or help from others is not a negative in itself: judge whether the candidate understands what they shipped (how it works, why, how they checked it, what they would change). Say in each rationale which strong or weak signals from the scorecard the answers showed.
+
 Competency scores, 1 to 5:
-5 = several concrete, first-hand examples with detail that held up under follow-up.
-4 = a concrete first-hand example with good detail.
-3 = relevant experience, but detail was thin or partly second-hand.
-2 = mostly general or theoretical answers; little first-hand evidence.
+5 = showed most of the strong signals, with first-hand detail and real understanding that held up under follow-up.
+4 = showed clear strong signals on at least one concrete example, with good understanding.
+3 = relevant experience, but understanding or detail was thin, or partly second-hand.
+2 = mostly weak signals: general or theoretical answers, could not explain their own work.
 1 = could not answer, or answers contradicted each other.
 If the transcript has no usable evidence for a competency, set "score" to null and say so in the rationale. Give two to four quotes for every scored competency.
 

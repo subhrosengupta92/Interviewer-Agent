@@ -1,5 +1,5 @@
 import { normalise } from "../../src/lib/quotes";
-import type { ClaimVerdict, HardBarStatus, InterviewInput, Report, Turn } from "../../src/lib/types";
+import type { ClaimVerdict, HardBarStatus, InterviewInput, Plan, Report, Turn } from "../../src/lib/types";
 import { $, api, ApiError, clock, esc, idFromUrl } from "./common";
 
 const id = idFromUrl();
@@ -38,8 +38,18 @@ function quoteBlock(quote: string, turns: Turn[]): string {
   return `<blockquote>${i >= 0 ? `<a href="#t-${i + 1}" data-turn="${i + 1}">` : ""}“${esc(quote)}”${src}${i >= 0 ? "</a>" : ""}</blockquote>`;
 }
 
-function render(iv: { input: InterviewInput; report: Report; turns: Turn[]; duration_secs: number | null; attempts: number; created_at: number }) {
+function render(iv: { input: InterviewInput; plan: Plan | null; report: Report; turns: Turn[]; duration_secs: number | null; attempts: number; created_at: number }) {
   const { input, report: r, turns } = iv;
+  const sc = iv.plan?.scorecard;
+  const li = (items: string[]) => `<ul class="tight">${items.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>`;
+  const barFor = (name: string) => {
+    const b = sc?.competencies.find((c) => c.name === name);
+    return b
+      ? `<details><summary class="small">What good looks like</summary>
+          <div class="kv" style="margin-top:8px"><strong>Strong</strong></div>${li(b.strong)}
+          ${b.weak.length ? `<div class="kv" style="margin-top:8px"><strong>Weak</strong></div>${li(b.weak)}` : ""}</details>`
+      : "";
+  };
   const quotes = (qs: string[]) => qs.map((q) => quoteBlock(q, turns)).join("");
   const pill = ([label, cls]: [string, string]) => `<span class="pill ${cls}">${label}</span>`;
   const dots = (n: number) => `<span class="dots" aria-hidden="true">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</span>`;
@@ -60,6 +70,13 @@ function render(iv: { input: InterviewInput; report: Report; turns: Turn[]; dura
         <div class="num">${r.overall_score}<small>/10</small></div><div class="lab">${FLAG[r.flag]}</div>
       </div>
     </div>
+
+    ${
+      sc
+        ? `<details class="card"><summary>What good looks like for this role (set before the interview)</summary>
+            <p style="margin-top:10px">${esc(sc.bar)}</p>${sc.principles.length ? li(sc.principles) : ""}</details>`
+        : ""
+    }
 
     <h2>Hard bars</h2>
     ${
@@ -91,7 +108,7 @@ function render(iv: { input: InterviewInput; report: Report; turns: Turn[]; dura
             ? '<span class="pill neutral">Not enough evidence</span>'
             : `<span class="scoreline">${dots(c.score)}${c.score} / 5</span>`;
         return `<div class="card"><div class="item-head"><div><h3>${esc(c.name)}</h3>${kind ? `<div class="kv">${kind === "behavioural" ? "Behavioural" : "Functional"}</div>` : ""}</div>${score}</div>
-          <p>${esc(c.rationale)}</p>${quotes(c.quotes)}</div>`;
+          <p>${esc(c.rationale)}</p>${quotes(c.quotes)}${barFor(c.name)}</div>`;
       })
       .join("")}
 

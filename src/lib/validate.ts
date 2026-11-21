@@ -63,11 +63,26 @@ export function validatePlan(raw: unknown, input: InterviewInput): Plan {
     if (!hit || !hit.questions.length) throw new ValidationError(`Plan has no questions for "${c.name}".`);
     return { ...hit, name: c.name };
   });
+  const sc = (r.scorecard ?? {}) as Record<string, unknown>;
+  const bars = arr(sc.competencies).map((c) => {
+    const o = (c ?? {}) as Record<string, unknown>;
+    return { name: str(o.name), strong: strs(o.strong), weak: strs(o.weak) };
+  });
+  const scorecard = {
+    bar: str(sc.bar),
+    competencies: input.competencies.map((c) => {
+      const hit = bars.find((b) => sameName(b.name, c.name));
+      if (!hit || !hit.strong.length) throw new ValidationError(`Scorecard does not say what good looks like for "${c.name}".`);
+      return { ...hit, name: c.name };
+    }),
+    principles: strs(sc.principles),
+  };
   const budget: Record<string, number> = {};
   for (const [k, v] of Object.entries((r.time_budget_minutes ?? {}) as Record<string, unknown>)) {
     if (Number.isFinite(Number(v))) budget[k] = Number(v);
   }
   return {
+    scorecard,
     opening: str(r.opening),
     background_questions: strs(r.background_questions),
     hard_bar_checks: arr(r.hard_bar_checks)

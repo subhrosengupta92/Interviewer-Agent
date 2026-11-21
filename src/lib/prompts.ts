@@ -1,4 +1,20 @@
-import type { InterviewInput, Plan, Turn } from "./types";
+import type { InterviewInput, Plan, Scorecard, Turn } from "./types";
+
+/** The scorecard as text, for the Interviewer's brief and the Scorer. Empty for older plans without one. */
+export function scorecardText(sc: Scorecard | undefined): string {
+  if (!sc) return "";
+  return [
+    `WHAT GOOD LOOKS LIKE FOR THIS ROLE`,
+    sc.bar,
+    ...sc.competencies.map(
+      (c) =>
+        `* ${c.name}\n  Strong evidence: ${c.strong.join("; ")}\n  Weak evidence: ${c.weak.join("; ") || "generalities with no first-hand detail"}`,
+    ),
+    sc.principles.length ? `How to read what you hear:\n${sc.principles.map((p) => `- ${p}`).join("\n")}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
 const competencyLines = (input: InterviewInput) =>
   input.competencies
@@ -37,6 +53,7 @@ export function interviewerBrief(input: InterviewInput, plan: Plan): string {
     `INTERVIEW BRIEF`,
     `Candidate: ${input.candidate_name} (call them ${firstName}). Role: ${input.role_title}. Length: ${input.minutes} minutes.`,
     budget ? `Time budget: ${budget}.` : "",
+    scorecardText(plan.scorecard),
     plan.opening ? `Opening: ${plan.opening}` : "",
     `Background questions:\n${plan.background_questions.map((q) => `- ${q}`).join("\n")}`,
     `Hard bars (ask within the first five minutes; ask, never state a salary figure):\n${plan.hard_bar_checks
@@ -76,6 +93,7 @@ export function scorerMessage(input: InterviewInput, plan: Plan, turns: Turn[]):
     `Candidate: ${input.candidate_name}`,
     `Hard bars:\n${bars.map((b) => `- ${b}`).join("\n")}`,
     `Competencies to score:\n${competencyLines(input)}`,
+    scorecardText(plan.scorecard) || "No scorecard was written for this interview; use the general scale.",
     `CV claims the interviewer planned to probe:\n${
       plan.claims_to_probe.map((c) => `- ${c.claim} (would be backed by: ${c.specifics_needed.join("; ")})`).join("\n") ||
       "- none"

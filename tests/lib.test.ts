@@ -88,8 +88,22 @@ describe("validateInput", () => {
 });
 
 describe("validatePlan and validateReport", () => {
+  const scorecard = {
+    bar: "b",
+    competencies: [
+      { name: "System design", strong: ["s"], weak: ["w"] },
+      { name: "Ownership (behavioural)", strong: ["s"], weak: [] },
+    ],
+    principles: ["p"],
+  };
   it("requires questions for every competency", () => {
-    expect(() => validatePlan({ competencies: [{ name: "System design", questions: ["q"] }] }, input)).toThrow(/Ownership/);
+    expect(() => validatePlan({ scorecard, competencies: [{ name: "System design", questions: ["q"] }] }, input)).toThrow(/Ownership/);
+  });
+  it("requires the scorecard to say what good looks like for every competency", () => {
+    const competencies = input.competencies.map((c) => ({ name: c.name, questions: ["q"] }));
+    expect(() => validatePlan({ competencies }, input)).toThrow(/what good looks like for "System design"/);
+    const p = validatePlan({ scorecard, competencies }, input);
+    expect(p.scorecard!.competencies.map((c) => c.name)).toEqual(["System design", "Ownership"]);
   });
   it("turns out-of-range scores into not enough evidence", () => {
     const r = validateReport({ overall_score: 6, competencies: [{ name: "system design", score: 9, quotes: [] }] }, input);
@@ -98,7 +112,7 @@ describe("validatePlan and validateReport", () => {
   });
   it("matches competency names the model decorated", () => {
     const p = validatePlan(
-      { competencies: [{ name: "System design (functional)", questions: ["q"] }, { name: "ownership", questions: ["q"] }] },
+      { scorecard, competencies: [{ name: "System design (functional)", questions: ["q"] }, { name: "ownership", questions: ["q"] }] },
       input,
     );
     expect(p.competencies.map((c) => c.name)).toEqual(["System design", "Ownership"]);
