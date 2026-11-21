@@ -104,7 +104,10 @@ export interface Interview {
   turns: Turn[] | null;
   /** ElevenLabs conversation running the Planner or Scorer in the background. */
   job_conversation_id: string | null;
+  job_started_at: number | null;
   job_attempts: number;
+  /** When the candidate last started a voice session (ms). */
+  started_at: number | null;
   /** Voice conversations, oldest first. */
   conversation_ids: string[];
   duration_secs: number | null;
