@@ -80,25 +80,23 @@ const briefTool = await upsertTool(
   "/api/tool/brief",
   secretId,
 );
-const timeTool = await upsertTool(
-  "check_time",
-  "Returns how many minutes of the interview have passed, how many remain, and whether to continue or wrap up.",
-  "/api/tool/time",
-  secretId,
-);
+// Time is now sent by the browser as a silent context update; remove the old lookup tool if it exists.
+const { tools: existing } = await el<{ tools: { id: string; tool_config: { name: string } }[] }>("/v1/convai/tools");
+const oldTimeTool = existing.find((t) => t.tool_config.name === "check_time");
 
 const planner = await upsertAgent(`${PREFIX}planner`, textAgent(PLANNER_PROMPT, PLANNER_MODEL));
 const scorer = await upsertAgent(`${PREFIX}scorer`, textAgent(SCORER_PROMPT, SCORER_MODEL));
 const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
   conversation_config: {
     turn: {
-      // Patient turn-taking: wait for a clear end of answer, and stay quiet through thinking pauses.
-      turn_eagerness: "patient",
-      turn_timeout: 30,
-      speculative_turn: false,
+      // Normal turn-taking, with the reply prepared during the pause so it starts sooner.
+      // "patient" waited noticeably longer after every answer; go back to it if the agent cuts in.
+      turn_eagerness: "normal",
+      turn_timeout: 20,
+      speculative_turn: true,
       silence_end_call_timeout: 180,
     },
-    tts: { voice_id: INTERVIEWER_VOICE_ID, speed: 0.97 },
+    tts: { voice_id: INTERVIEWER_VOICE_ID, speed: 1.03, expressive_mode: true },
     conversation: { max_duration_seconds: 35 * 60 },
     agent: {
       first_message: INTERVIEWER_FIRST_MESSAGE,
@@ -117,8 +115,8 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
       prompt: {
         prompt: INTERVIEWER_PROMPT,
         llm: INTERVIEWER_MODEL,
-        temperature: 0.3,
-        tool_ids: [briefTool, timeTool],
+        temperature: 0.7,
+        tool_ids: [briefTool],
         built_in_tools: {
           end_call: {
             type: "system",
@@ -135,4 +133,5 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
 
 const ids = { planner, interviewer, scorer };
 writeFileSync(new URL("../agents/ids.json", import.meta.url), JSON.stringify(ids, null, 2) + "\n");
-console.log("Synced", ids, { briefTool, timeTool });
+if (oldTimeTool) await el(`/v1/convai/tools/${oldTimeTool.id}`, "DELETE");
+console.log("Synced", ids, { briefTool });

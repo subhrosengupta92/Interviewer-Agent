@@ -1,4 +1,5 @@
 import { Conversation } from "@elevenlabs/client";
+import { timeUpdate } from "../../src/lib/time";
 import { $, api, ApiError, clock, idFromUrl } from "./common";
 
 const id = idFromUrl();
@@ -17,6 +18,7 @@ let ticker: number | undefined;
 let micStream: MediaStream | null = null;
 let micRaf = 0;
 let ended = false;
+let lastMinuteSent = 0;
 
 function unavailable(title: string, text: string) {
   $("#unavailable-title").textContent = title;
@@ -128,6 +130,7 @@ async function start() {
   stopMicTest();
   ended = false;
   startedAt = 0;
+  lastMinuteSent = 0;
   try {
     // Ask for the microphone first, so a refusal is explained before a session is opened.
     (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().forEach((t) => t.stop());
@@ -148,6 +151,12 @@ async function start() {
           const secs = (Date.now() - startedAt) / 1000;
           $("#elapsed").textContent = clock(secs);
           $("#orb").style.setProperty("--level", String(Math.min(1, (conversation?.getInputVolume?.() ?? 0) * 3)));
+          // Tell the interviewer the time once a minute. It is context, not speech, so it costs no delay.
+          const minute = Math.floor(secs / 60);
+          if (minute > lastMinuteSent) {
+            lastMinuteSent = minute;
+            conversation?.sendContextualUpdate(timeUpdate(minute, minutes));
+          }
           if (secs > (minutes + OVERRUN_MINUTES) * 60) void conversation?.endSession();
         }, 250);
       },

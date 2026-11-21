@@ -138,14 +138,6 @@ export async function advance(d: Deps, iv: Interview): Promise<boolean> {
 
 const firstName = (iv: Interview) => iv.input.candidate_name.split(/\s+/)[0];
 
-export function timeGuidance(elapsedMin: number, totalMin: number): string {
-  const left = totalMin - elapsedMin;
-  if (left <= 0) return "Time is up. Close the interview now: thank the candidate, mention next steps, say goodbye, then call end_call.";
-  if (left <= Math.max(2, totalMin * 0.15)) return "Wrap up: invite the candidate's questions briefly, then close.";
-  if (left <= totalMin * 0.35) return "Finish competencies and claims now, then move to motivation.";
-  return "On track. Continue with the plan.";
-}
-
 export async function handleApi(request: Request, d: Deps): Promise<Response> {
   const url = new URL(request.url);
   const parts = url.pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
@@ -156,14 +148,6 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
       const iv = await d.store.get(url.searchParams.get("interview_id") ?? "");
       if (!iv || !iv.plan) return fail(404, "Interview not found");
       if (parts[1] === "brief" && method === "GET") return json({ brief: interviewerBrief(iv.input, iv.plan) });
-      if (parts[1] === "time" && method === "GET") {
-        const elapsed = Math.max(0, Math.floor((d.now() - (iv.started_at ?? d.now())) / 60_000));
-        return json({
-          minutes_elapsed: elapsed,
-          minutes_remaining: Math.max(0, iv.input.minutes - elapsed),
-          guidance: timeGuidance(elapsed, iv.input.minutes),
-        });
-      }
       return fail(404, "Not found");
     }
 

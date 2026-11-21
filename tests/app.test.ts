@@ -3,7 +3,8 @@ import type { ConversationSnapshot, Eleven } from "../src/lib/eleven";
 import { interviewerBrief, plannerMessage, scorerMessage } from "../src/lib/prompts";
 import { MemoryStore } from "../src/lib/store";
 import type { Plan } from "../src/lib/types";
-import { type Deps, handleApi, timeGuidance } from "../src/server/app";
+import { type Deps, handleApi } from "../src/server/app";
+import { timeGuidance, timeUpdate } from "../src/lib/time";
 import { input, report, turns } from "./fixtures";
 
 const plan: Plan = {
@@ -178,21 +179,16 @@ describe("tool routes", () => {
     expect((await call("GET", `/tool/brief?interview_id=${id}`)).status).toBe(401);
     expect((await call("GET", `/tool/brief?interview_id=${id}`, undefined, { "x-tool-secret": "nope" })).status).toBe(401);
   });
-  it("return the brief and the time with the right secret", async () => {
+  it("return the brief with the right secret", async () => {
     const id = await toReady();
-    const h = { "x-tool-secret": "s3cret" };
-    const b = await call("GET", `/tool/brief?interview_id=${id}`, undefined, h);
+    const b = await call("GET", `/tool/brief?interview_id=${id}`, undefined, { "x-tool-secret": "s3cret" });
     expect(b.body.brief).toContain("CV claims to probe");
-    await call("POST", `/interviews/${id}/session`);
-    clock += 26 * 60_000;
-    const t = await call("GET", `/tool/time?interview_id=${id}`, undefined, h);
-    expect(t.body).toMatchObject({ minutes_elapsed: 26, minutes_remaining: 4 });
-    expect(t.body.guidance).toMatch(/Wrap up/);
   });
   it("gives sensible guidance at each stage", () => {
     expect(timeGuidance(3, 30)).toMatch(/On track/);
     expect(timeGuidance(21, 30)).toMatch(/Finish competencies/);
     expect(timeGuidance(31, 30)).toMatch(/Time is up/);
+    expect(timeUpdate(26, 30)).toMatch(/26 of 30 minutes used\. Wrap up/);
   });
 });
 

@@ -11,6 +11,7 @@ import { BLUFFER_PERSONA } from "../demo/bluffer-persona";
 import { demoScenario } from "../demo/scenario";
 import { ElevenClient } from "../src/lib/eleven";
 import { quoteInTranscript } from "../src/lib/quotes";
+import { timeUpdate } from "../src/lib/time";
 import type { Interview, Turn } from "../src/lib/types";
 import { type Deps, handleApi } from "../src/server/app";
 import { el } from "./eleven-admin";
@@ -19,7 +20,7 @@ import { remoteStore } from "./remote-store";
 const need = (k: string) => process.env[k] ?? (() => { throw new Error(`Set ${k}`); })();
 const store = remoteStore();
 const MAX_EXCHANGES = Number(process.env.MAX_EXCHANGES ?? 45);
-/** Pretend each question-and-answer takes this long, so the time tool sees a realistic clock. */
+/** Pretend each question-and-answer takes this long, so the time checks follow a realistic clock. */
 const SECS_PER_EXCHANGE = 28;
 
 const deps: Deps = {
@@ -48,9 +49,12 @@ async function waitFor(id: string, done: (s: string) => boolean, label: string) 
   throw new Error(`Timed out waiting for ${label}`);
 }
 
-async function say(conversationId: string, text: string): Promise<{ text: string; status: string }> {
+async function say(conversationId: string, text: string, context?: string): Promise<{ text: string; status: string }> {
   const turn = await el(`/v1/convai/conversations/${conversationId}/messages`, "POST", {
-    input: [{ type: "user_message", content: [{ type: "text", text }] }],
+    input: [
+      ...(context ? [{ type: "contextual_update", text: context, context_id: "clock", placement: "end" }] : []),
+      { type: "user_message", content: [{ type: "text", text }] },
+    ],
   });
   return { text: (turn.output ?? []).map((o: any) => o.text).join(" ").trim(), status: turn.status };
 }
@@ -93,16 +97,13 @@ try {
   });
   const candidate = await el("/v1/convai/conversations", "POST", { agent: { type: "persisted", agent_id: candidateAgent } });
 
-  turns.push({ role: "agent", text: "Hi Rohan, thanks for joining. I'm Maya, an AI interviewer… can you hear me clearly?" });
-  let candidateLine = "Yes, I can hear you clearly.";
+  turns.push({ role: "agent", text: "Hi Rohan, it's lovely to meet you! I'm Maya, an AI interviewer… Can you hear me alright?" });
+  let candidateLine = "Yes, I can hear you. Nice to meet you too.";
   for (let n = 1; n <= MAX_EXCHANGES; n++) {
     turns.push({ role: "candidate", text: candidateLine, at_secs: n * SECS_PER_EXCHANGE });
-    // Move the interview's clock so check_time reports elapsed minutes as a real call would.
-    const row = (await store.get(id))!;
-    row.started_at = Date.now() - n * SECS_PER_EXCHANGE * 1000;
-    await store.put(row);
-
-    const reply = await say(interviewer.conversation_id, candidateLine);
+    // Tell the interviewer the time the way the browser does in a real call.
+    const minute = Math.floor((n * SECS_PER_EXCHANGE) / 60);
+    const reply = await say(interviewer.conversation_id, candidateLine, minute ? timeUpdate(minute, demoScenario.minutes) : undefined);
     if (!reply.text) {
       console.log(`   interviewer ended the call after ${n} exchanges (${reply.status})`);
       break;
