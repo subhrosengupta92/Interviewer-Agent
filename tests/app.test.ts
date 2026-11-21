@@ -34,8 +34,9 @@ class FakeEleven implements Eleven {
     if (!c) throw new Error("not found");
     return c;
   }
-  async getToken() {
-    return { token: "tok", conversation_id: `conv_${++this.n}` };
+  async getSession(_agent: string, transport: string) {
+    const conversation_id = `conv_${++this.n}`;
+    return transport === "websocket" ? { signed_url: "wss://x", conversation_id } : { token: "tok", conversation_id };
   }
   reply(id: string, text: string) {
     this.convs.set(id, { status: "done", turns: [{ role: "agent", text }], duration_secs: 0 });
@@ -154,6 +155,16 @@ describe("candidate routes", () => {
     expect(text).not.toMatch(/18 LPA|retry service|Finlo|Mumbai/);
     expect(s.body.variables).toEqual({ interview_id: id, candidate_first_name: "Asha", role_title: "SDE 1", minutes: 30 });
     expect(s.body.token).toBe("tok");
+  });
+  it("issue a WebSocket session on request, and count only the call that happened", async () => {
+    const id = await toReady();
+    await call("POST", `/interviews/${id}/session`);
+    const s = await call("POST", `/interviews/${id}/session`, { transport: "websocket" });
+    expect(s.body).toMatchObject({ transport: "websocket", signed_url: "wss://x" });
+    const [, second] = (await d.store.get(id))!.conversation_ids;
+    eleven.convs.set(second, { status: "done", turns, duration_secs: 600 });
+    await call("POST", `/interviews/${id}/complete`);
+    expect((await call("GET", `/interviews/${id}`)).body.status).toBe("scoring");
   });
   it("refuse a session before the plan is ready and after the report is done", async () => {
     const { body } = await call("POST", "/interviews", input);

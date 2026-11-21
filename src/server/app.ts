@@ -220,13 +220,18 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
     if (action === "session" && method === "POST") {
       if (!["ready", "in_progress", "too_short"].includes(iv.status))
         return fail(409, iv.status === "planning" ? "This interview is still being prepared." : "This interview has already been completed.");
-      const { token, conversation_id } = await d.eleven.getToken(d.agents.interviewer);
+      // WebRTC by default; the browser asks for a WebSocket session if WebRTC cannot connect on its network.
+      const body = (await request.json().catch(() => ({}))) as { transport?: string };
+      const transport = body.transport === "websocket" ? "websocket" : "webrtc";
+      const { token, signed_url, conversation_id } = await d.eleven.getSession(d.agents.interviewer, transport);
       if (conversation_id) iv.conversation_ids.push(conversation_id);
       iv.status = "in_progress";
       iv.started_at = d.now();
       await d.store.put(iv);
       return json({
+        transport,
         token,
+        signed_url,
         variables: {
           interview_id: iv.id,
           candidate_first_name: firstName(iv),

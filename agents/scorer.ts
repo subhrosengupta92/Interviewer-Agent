@@ -20,11 +20,11 @@ Claims: for each claim the interviewer planned to probe, and any other notable c
 - "partly_substantiated": some specifics, with gaps or a smaller role than the CV implies.
 - "not_substantiated": after follow-up questions the candidate stayed general, deflected, could not explain their own numbers, or described a smaller role than the CV states.
 - "not_probed": the interviewer did not get to it.
-Describe what was asked and what the answers did or did not contain. Write about the claim, not the person: never say or imply that the candidate lied or was dishonest. Quote the answers that show the gap or the substance.
+Describe what was asked and what the answers did or did not contain. Write about the evidence, not the person's intent: say what the CV states and what the interview did or did not back up. Never say or imply that the candidate lied or was dishonest, and do not use words such as "exaggerated", "inflated", "fabricated", "misrepresented" or "bluff" anywhere in the report, including the summary and notes. If the candidate described a smaller role than the CV states, report the role they described in their own words. Quote the answers that show the gap or the substance.
 
 Hard bars: for each one, "met", "not_met" or "unclear", comparing what the candidate said with the company's limit. A compensation expectation clearly above the budget is "not_met"; one the candidate called flexible or negotiable down into budget is "unclear". Include the quote.
 
-Overall score out of 10: your holistic view of the candidate against this role, weighing the competencies, the claims and motivation. Unsubstantiated claims on the central items of the CV should weigh heavily. Use one decimal place.
+Overall score out of 10: your holistic view of the candidate against this role from the interview alone, weighing the competencies, the claims and motivation. Unsubstantiated claims on the central items of the CV should weigh heavily. Do not lower it for a hard bar; that is applied separately. Use one decimal place.
 
 Notes: detailed, granular points grouped by interview section (Background, Hard bars, each competency area, Motivation, Candidate's questions), so a reader can skip the transcript.
 

@@ -11,41 +11,16 @@ import { BLUFFER_PERSONA } from "../demo/bluffer-persona";
 import { demoScenario } from "../demo/scenario";
 import { ElevenClient } from "../src/lib/eleven";
 import { quoteInTranscript } from "../src/lib/quotes";
-import type { Store } from "../src/lib/store";
 import type { Interview, Turn } from "../src/lib/types";
 import { type Deps, handleApi } from "../src/server/app";
 import { el } from "./eleven-admin";
+import { remoteStore } from "./remote-store";
 
 const need = (k: string) => process.env[k] ?? (() => { throw new Error(`Set ${k}`); })();
-const ACCOUNT = need("CLOUDFLARE_ACCOUNT_ID");
-const DB = need("D1_DATABASE_ID");
+const store = remoteStore();
 const MAX_EXCHANGES = Number(process.env.MAX_EXCHANGES ?? 45);
 /** Pretend each question-and-answer takes this long, so the time tool sees a realistic clock. */
 const SECS_PER_EXCHANGE = 28;
-
-async function d1(sql: string, params: unknown[] = []) {
-  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/d1/database/${DB}/query`, {
-    method: "POST",
-    headers: { authorization: `Bearer ${need("CLOUDFLARE_API_TOKEN")}`, "content-type": "application/json" },
-    body: JSON.stringify({ sql, params }),
-  });
-  const data = (await res.json()) as any;
-  if (!data.success) throw new Error(`D1: ${JSON.stringify(data.errors)}`);
-  return data.result[0].results as any[];
-}
-
-const store: Store = {
-  async get(id) {
-    const rows = await d1("SELECT data FROM interviews WHERE id = ?", [id]);
-    return rows[0] ? (JSON.parse(rows[0].data) as Interview) : null;
-  },
-  async put(iv) {
-    await d1(
-      "INSERT INTO interviews (id, created_at, data) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
-      [iv.id, iv.created_at, JSON.stringify(iv)],
-    );
-  },
-};
 
 const deps: Deps = {
   store,

@@ -57,11 +57,14 @@ describe("scoring", () => {
     expect(flagFor(4.9)).toBe("red");
   });
   it("caps the overall score at 4 when a hard bar is not met", () => {
-    expect(finaliseScore(report)).toMatchObject({ overall_score: 4, flag: "red" });
+    const capped = finaliseScore(report);
+    expect(capped).toMatchObject({ overall_score: 4, flag: "red", score_before_cap: 8 });
+    expect(capped.cap_reason).toMatch(/hard bar was not met: Compensation/);
   });
   it("leaves the score alone when hard bars are fine", () => {
     const ok = { ...report, hard_bars: [{ ...report.hard_bars[0], status: "met" as const }] };
     expect(finaliseScore(ok)).toMatchObject({ overall_score: 8, flag: "green" });
+    expect(finaliseScore(ok).cap_reason).toBeUndefined();
   });
   it("caps when nothing could be scored", () => {
     const none = { ...report, hard_bars: [], competencies: report.competencies.map((c) => ({ ...c, score: null })) };

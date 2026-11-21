@@ -99,7 +99,8 @@ function setMode(mode: "speaking" | "listening" | "connecting") {
 }
 
 async function finish(reason: string) {
-  if (ended) return;
+  // A connection attempt that never got through is handled by start(), not here.
+  if (ended || !startedAt) return;
   ended = true;
   clearInterval(ticker);
   const secs = startedAt ? (Date.now() - startedAt) / 1000 : 0;
@@ -126,6 +127,7 @@ async function start() {
   btn.textContent = "Connecting…";
   stopMicTest();
   ended = false;
+  startedAt = 0;
   try {
     // Ask for the microphone first, so a refusal is explained before a session is opened.
     (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().forEach((t) => t.stop());
@@ -137,13 +139,9 @@ async function start() {
     return;
   }
   try {
-    const session = await api(`/interviews/${id}/session`, "POST");
     show("call");
     setMode("connecting");
-    conversation = await Conversation.startSession({
-      conversationToken: session.token,
-      connectionType: "webrtc",
-      dynamicVariables: session.variables,
+    const callbacks = {
       onConnect: () => {
         startedAt = Date.now();
         ticker = window.setInterval(() => {
@@ -153,14 +151,33 @@ async function start() {
           if (secs > (minutes + OVERRUN_MINUTES) * 60) void conversation?.endSession();
         }, 250);
       },
-      onModeChange: ({ mode }) => setMode(mode === "speaking" ? "speaking" : "listening"),
-      onDisconnect: (details) => void finish(details.reason),
-      onError: (message) => {
+      onModeChange: ({ mode }: { mode: string }) => setMode(mode === "speaking" ? "speaking" : "listening"),
+      onDisconnect: (details: { reason: string }) => void finish(details.reason),
+      onError: (message: string) => {
         const box = $("#call-error");
         box.hidden = false;
         box.textContent = `There is a connection problem (${message}). If the call does not recover, end it and start again.`;
       },
-    });
+    };
+    try {
+      const session = await api(`/interviews/${id}/session`, "POST", { transport: "webrtc" });
+      conversation = await Conversation.startSession({
+        conversationToken: session.token,
+        connectionType: "webrtc",
+        dynamicVariables: session.variables,
+        ...callbacks,
+      });
+    } catch (first) {
+      if (first instanceof ApiError) throw first;
+      // Some office networks block WebRTC media. A WebSocket session works wherever the page itself loads.
+      const session = await api(`/interviews/${id}/session`, "POST", { transport: "websocket" });
+      conversation = await Conversation.startSession({
+        signedUrl: session.signed_url,
+        connectionType: "websocket",
+        dynamicVariables: session.variables,
+        ...callbacks,
+      });
+    }
   } catch (e) {
     show("lobby");
     err.hidden = false;

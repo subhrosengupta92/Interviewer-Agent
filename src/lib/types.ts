@@ -65,6 +65,9 @@ export type Flag = "green" | "amber" | "red";
 export interface Report {
   summary: string;
   overall_score: number;
+  /** The Scorer's own number, when a rule lowered it; otherwise absent. */
+  score_before_cap?: number;
+  cap_reason?: string;
   flag: Flag;
   hard_bars: { label: string; status: HardBarStatus; note: string; quotes: string[] }[];
   competencies: {

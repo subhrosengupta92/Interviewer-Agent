@@ -53,6 +53,7 @@ function render(iv: { input: InterviewInput; report: Report; turns: Turn[]; dura
           iv.attempts > 1 ? ` · attempt ${iv.attempts} of ${iv.attempts}` : ""
         }</div>
         <p>${esc(r.summary)}</p>
+        ${r.cap_reason ? `<p class="notice small">${esc(r.cap_reason)} The interview on its own scored ${r.score_before_cap}/10.</p>` : ""}
         <p class="small muted">This report informs your decision; it does not make one. Every quote is checked word for word against the transcript.</p>
       </div>
       <div class="scorebox flag-${r.flag}" role="img" aria-label="Overall ${r.overall_score} out of 10, ${FLAG[r.flag]}">

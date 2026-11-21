@@ -7,12 +7,19 @@ export interface ConversationSnapshot {
   duration_secs: number;
 }
 
+export type Transport = "webrtc" | "websocket";
+export interface SessionGrant {
+  token?: string;
+  signed_url?: string;
+  conversation_id?: string;
+}
+
 export interface Eleven {
   /** Sends one message to a text-only agent and returns at once; the reply is read later. */
   startText(agentId: string, message: string): Promise<string>;
   getConversation(conversationId: string): Promise<ConversationSnapshot>;
-  /** Short-lived token the browser uses to join a voice session. */
-  getToken(agentId: string): Promise<{ token: string; conversation_id?: string }>;
+  /** Short-lived credential the browser uses to join a voice session: a WebRTC token or a WebSocket URL. */
+  getSession(agentId: string, transport: Transport): Promise<SessionGrant>;
 }
 
 const BASE = "https://api.elevenlabs.io";
@@ -71,7 +78,12 @@ export class ElevenClient implements Eleven {
     return { status: c.status, turns, duration_secs: c.metadata?.call_duration_secs ?? 0 };
   }
 
-  async getToken(agentId: string): Promise<{ token: string; conversation_id?: string }> {
-    return this.call(`/v1/convai/conversation/token?agent_id=${encodeURIComponent(agentId)}`);
+  async getSession(agentId: string, transport: Transport): Promise<SessionGrant> {
+    const q = `agent_id=${encodeURIComponent(agentId)}`;
+    if (transport === "webrtc") return this.call(`/v1/convai/conversation/token?${q}`);
+    const grant = await this.call<SessionGrant>(`/v1/convai/conversation/get-signed-url?${q}&include_conversation_id=true`);
+    // The signed URL carries the conversation ID as a query parameter rather than as its own field.
+    const fromUrl = grant.signed_url ? new URL(grant.signed_url).searchParams.get("conversation_id") : null;
+    return { ...grant, conversation_id: grant.conversation_id ?? fromUrl ?? undefined };
   }
 }
