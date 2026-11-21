@@ -2,7 +2,7 @@ import type { InterviewInput, Plan, Turn } from "./types";
 
 const competencyLines = (input: InterviewInput) =>
   input.competencies
-    .map((c) => `- ${c.name} (${c.kind})${c.definition ? `: ${c.definition}` : ""}`)
+    .map((c) => `- name: "${c.name}" | type: ${c.kind}${c.definition ? ` | what good looks like: ${c.definition}` : ""}`)
     .join("\n");
 
 /**
@@ -23,7 +23,7 @@ export function plannerMessage(input: InterviewInput): string {
     `Competencies to test:\n${competencyLines(input)}`,
     `<job_description>\n${input.job_description}\n</job_description>`,
     `<cv>\n${input.cv_text}\n</cv>`,
-    "Produce the interview plan as JSON.",
+    "Produce the interview plan as JSON. Use each competency name exactly as written inside the quotes.",
   ].join("\n\n");
 }
 
@@ -82,6 +82,6 @@ export function scorerMessage(input: InterviewInput, plan: Plan, turns: Turn[]):
     }`,
     `<cv>\n${input.cv_text}\n</cv>`,
     `<transcript>\n${transcriptText(turns)}\n</transcript>`,
-    "Produce the assessment report as JSON.",
+    "Produce the assessment report as JSON. Use each competency name exactly as written inside the quotes.",
   ].join("\n\n");
 }

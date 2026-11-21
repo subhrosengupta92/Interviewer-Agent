@@ -17,6 +17,13 @@ export interface Eleven {
 
 const BASE = "https://api.elevenlabs.io";
 
+/** Thrown when the deployment has no ElevenLabs key configured. */
+export class MissingKeyError extends Error {
+  constructor() {
+    super("The ElevenLabs key has not been added to this deployment yet.");
+  }
+}
+
 export class ElevenClient implements Eleven {
   constructor(
     private apiKey: string,
@@ -24,6 +31,7 @@ export class ElevenClient implements Eleven {
   ) {}
 
   private async call<T>(path: string, init: RequestInit = {}): Promise<T> {
+    if (!this.apiKey) throw new MissingKeyError();
     const res = await this.fetcher(BASE + path, {
       ...init,
       headers: { "xi-api-key": this.apiKey, "content-type": "application/json", ...(init.headers ?? {}) },

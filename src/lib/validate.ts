@@ -5,6 +5,14 @@ export class ValidationError extends Error {}
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const strs = (v: unknown) => arr(v).map(str).filter(Boolean);
+/** Models sometimes decorate a name ("Ownership (behavioural)"); compare on the bare name. */
+const bare = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+const sameName = (a: string, b: string) => bare(a) === bare(b);
 
 const MAX_CV = 40_000;
 const MAX_JD = 20_000;
@@ -51,7 +59,7 @@ export function validatePlan(raw: unknown, input: InterviewInput): Plan {
     return { name: str(o.name), questions: strs(o.questions), cv_anchor: str(o.cv_anchor) };
   });
   const competencies = input.competencies.map((c) => {
-    const hit = planned.find((p) => p.name.toLowerCase() === c.name.toLowerCase());
+    const hit = planned.find((p) => sameName(p.name, c.name));
     if (!hit || !hit.questions.length) throw new ValidationError(`Plan has no questions for "${c.name}".`);
     return { ...hit, name: c.name };
   });
@@ -93,7 +101,7 @@ export function validateReport(raw: unknown, input: InterviewInput): Report {
   const r = (raw ?? {}) as Record<string, unknown>;
   const scored = arr(r.competencies).map((c) => (c ?? {}) as Record<string, unknown>);
   const competencies = input.competencies.map((c) => {
-    const o = scored.find((s) => str(s.name).toLowerCase() === c.name.toLowerCase()) ?? {};
+    const o = scored.find((s) => sameName(str(s.name), c.name)) ?? {};
     const n = Number(o.score);
     const score = o.score !== null && Number.isFinite(n) && n >= 1 && n <= 5 ? Math.round(n) : null;
     return {

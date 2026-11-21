@@ -93,6 +93,13 @@ describe("validatePlan and validateReport", () => {
     expect(r.competencies[0]).toMatchObject({ name: "System design", score: null, insufficient_evidence: true });
     expect(r.competencies[1].score).toBeNull();
   });
+  it("matches competency names the model decorated", () => {
+    const p = validatePlan(
+      { competencies: [{ name: "System design (functional)", questions: ["q"] }, { name: "ownership", questions: ["q"] }] },
+      input,
+    );
+    expect(p.competencies.map((c) => c.name)).toEqual(["System design", "Ownership"]);
+  });
   it("rejects a report without an overall score", () => {
     expect(() => validateReport({ competencies: [] }, input)).toThrow(/overall score/);
   });

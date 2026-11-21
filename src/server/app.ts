@@ -1,4 +1,4 @@
-import type { Eleven } from "../lib/eleven";
+import { type Eleven, MissingKeyError } from "../lib/eleven";
 import { extractJson } from "../lib/json";
 import { interviewerBrief, plannerMessage, scorerMessage } from "../lib/prompts";
 import { enforceEvidence } from "../lib/quotes";
@@ -260,6 +260,7 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
     return fail(404, "Not found");
   } catch (e) {
     if (e instanceof ValidationError) return fail(400, e.message);
+    if (e instanceof MissingKeyError) return fail(503, e.message);
     console.error(e);
     return fail(502, "Something went wrong talking to the interview service. Please try again.");
   }

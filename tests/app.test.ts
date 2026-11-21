@@ -133,6 +133,18 @@ describe("planning", () => {
   });
 });
 
+describe("a deployment without the ElevenLabs key", () => {
+  it("still serves finished reports and says plainly what is missing otherwise", async () => {
+    const { ElevenClient } = await import("../src/lib/eleven");
+    const id = await toReady();
+    d.eleven = new ElevenClient("");
+    expect((await call("GET", `/interviews/${id}`)).status).toBe(200);
+    const r = await call("POST", "/interviews", input);
+    expect(r.status).toBe(503);
+    expect(r.body.error).toMatch(/ElevenLabs key has not been added/);
+  });
+});
+
 describe("candidate routes", () => {
   it("never expose the plan, the CV or the budget", async () => {
     const id = await toReady();
