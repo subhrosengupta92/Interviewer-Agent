@@ -38,6 +38,9 @@ async function upsertTool(name: string, description: string, path: string, secre
     response_timeout_secs: 15,
     // Have the agent say a short line before the lookup, so the candidate is not left in silence while it runs.
     pre_tool_speech: "force",
+    // A soft keyboard sound while it looks things up, like someone pulling up notes.
+    tool_call_sound: "typing",
+    tool_call_sound_behavior: "always",
     api_schema: {
       url: `${BASE_URL}${path}`,
       method: "GET",
@@ -108,7 +111,11 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
     // Ignore other people talking and TV or street noise near the candidate.
     vad: { background_voice_detection: true },
     tts: { voice_id: INTERVIEWER_VOICE_ID, speed: 1.03, expressive_mode: true },
-    conversation: { max_duration_seconds: 35 * 60 },
+    conversation: {
+      max_duration_seconds: 35 * 60,
+      // Quiet office ambience under the whole call, so silences do not sound dead. Set source_type to null to turn it off.
+      background_sound: { source_type: "preset", source_id: "office1", volume: 0.08, crossfade_loop: true },
+    },
     // Hindi interviews: same agent, Hindi speech recognition and voice, and a Hindi greeting.
     language_presets: { hi: { overrides: { agent: { language: "hi", first_message: INTERVIEWER_FIRST_MESSAGE_HI } } } },
     agent: {
