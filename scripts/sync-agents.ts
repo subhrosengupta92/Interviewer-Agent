@@ -35,6 +35,8 @@ async function upsertTool(name: string, description: string, path: string, secre
     name,
     description,
     response_timeout_secs: 15,
+    // Have the agent say a short line before the lookup, so the candidate is not left in silence while it runs.
+    pre_tool_speech: "force",
     api_schema: {
       url: `${BASE_URL}${path}`,
       method: "GET",
@@ -96,7 +98,14 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
       turn_timeout: 20,
       speculative_turn: true,
       silence_end_call_timeout: 180,
+      // "Yeah", "mm-hm", "okay" and the like are listening noises, not interruptions: keep talking through them.
+      interruption_ignore_term_languages: ["en"],
+      merge_with_default_ignore_terms: true,
+      // Only pure listening noises here; words that can be a real answer ("yes", "sure") are left out.
+      interruption_ignore_terms: ["yeah", "ya", "haan", "hmm", "mm", "mm-hmm", "uh-huh", "okay", "ok", "achha", "accha", "i see", "got it"],
     },
+    // Ignore other people talking and TV or street noise near the candidate.
+    vad: { background_voice_detection: true },
     tts: { voice_id: INTERVIEWER_VOICE_ID, speed: 1.03, expressive_mode: true },
     conversation: { max_duration_seconds: 35 * 60 },
     agent: {
