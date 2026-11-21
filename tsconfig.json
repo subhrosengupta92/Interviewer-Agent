@@ -6,8 +6,9 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "resolveJsonModule": true,
+    "lib": ["ES2023"],
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src", "functions", "agents", "scripts", "web/src", "demo", "tests"]
+  "include": ["src", "functions", "agents", "demo", "tests"]
 }

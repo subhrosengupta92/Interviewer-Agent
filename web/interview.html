@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>First Round · Your interview</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="narrow">
+  <header class="site"><span class="brand">First Round</span><span class="brand-note">Voice interview</span></header>
+
+  <section id="loading"><p class="muted"><span class="spinner"></span>Loading your interview…</p></section>
+
+  <section id="unavailable" hidden>
+    <h1 id="unavailable-title">This interview is not available</h1>
+    <p class="lede" id="unavailable-text"></p>
+  </section>
+
+  <section id="lobby" hidden>
+    <h1 id="hello">Your interview</h1>
+    <p class="lede" id="intro"></p>
+    <div class="card">
+      <h3>How it works</h3>
+      <ul class="tight">
+        <li>You will speak with Maya, an AI interviewer. It is a conversation, not a quiz.</li>
+        <li>Take your time. If you need a moment to think, just say so.</li>
+        <li>Use a quiet room and, if you can, headphones.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Microphone check</h3>
+      <p class="hint" id="mic-text">Allow microphone access, then say a few words. The bar should move.</p>
+      <div class="meter" aria-hidden="true"><i id="mic-level"></i></div>
+      <div class="actions" style="margin-top:10px"><button type="button" class="secondary" id="mic-test">Test my microphone</button><span id="mic-ok" class="small muted" role="status"></span></div>
+    </div>
+    <label class="check"><input type="checkbox" id="consent"><span>I understand this conversation is with an AI, that it is recorded and transcribed, and that the hiring team will review it.</span></label>
+    <div id="lobby-error" class="error" role="alert" hidden></div>
+    <div class="actions"><button type="button" id="start" disabled>Start the interview</button></div>
+  </section>
+
+  <section id="call" hidden>
+    <div class="stage">
+      <div class="orb" id="orb" aria-hidden="true"></div>
+      <div class="who" id="who" role="status" aria-live="polite">Connecting…</div>
+      <div class="timer"><span id="elapsed">0:00</span> of about <span id="total"></span> min</div>
+      <div id="call-error" class="error" role="alert" hidden></div>
+      <div class="actions" style="justify-content:center"><button type="button" class="secondary" id="end">End interview</button></div>
+      <p class="small muted" style="margin-top:18px">Need to think? Say "give me a moment". Maya will wait.</p>
+    </div>
+  </section>
+
+  <section id="done" hidden>
+    <h1 id="done-title">Thank you</h1>
+    <p class="lede" id="done-text">Your interview is complete. The hiring team will review it and be in touch about next steps. You can close this page.</p>
+    <div class="actions"><button type="button" class="secondary" id="again" hidden>Start again</button></div>
+  </section>
+</main>
+<script type="module" src="/assets/interview.js"></script>
+</body>
+</html>
