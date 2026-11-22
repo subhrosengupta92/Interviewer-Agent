@@ -4,7 +4,7 @@ import { ROLES } from "../data/roles";
 import type { Interview } from "../lib/types";
 import { extractJson } from "../lib/json";
 import type { Deps } from "./app";
-import { parseReply } from "./chat";
+import { resendIfCutOff } from "./chat";
 
 export interface JobDescription {
   title: string;
@@ -156,7 +156,7 @@ async function say(d: Deps, chat: RecruitChat, text: string) {
       .join("\n");
     raw = await d.eleven.chat(chat.conversation_id, `[conversation so far, for your memory]\n${history}\n[end]\n\n${text}`);
   }
-  return parseReply(raw);
+  return resendIfCutOff(d, chat.conversation_id, raw);
 }
 
 function realise(chat: RecruitChat, action: Record<string, unknown> | null): RecruitAction | null {

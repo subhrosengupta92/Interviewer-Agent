@@ -269,14 +269,14 @@ describe("language", () => {
 
 describe("parseReply", () => {
   it("reads plain, fenced, prefixed and repeated JSON replies", () => {
-    expect(parseReply('{"say":"Hi","action":null}')).toEqual({ say: "Hi", action: null });
-    expect(parseReply('```json\n{"say":"Hi {there}","action":{"type":"join"}}\n```')).toEqual({ say: "Hi {there}", action: { type: "join" } });
+    expect(parseReply('{"say":"Hi","action":null}')).toEqual({ say: "Hi", action: null, complete: true });
+    expect(parseReply('```json\n{"say":"Hi {there}","action":{"type":"join"}}\n```')).toMatchObject({ say: "Hi {there}", action: { type: "join" } });
     expect(parseReply('Nice start.\n\n{"say":"Nice start. Link?","action":null}').say).toBe("Nice start. Link?");
-    expect(parseReply('{"say":"one","action":null}\n{"say":"two","action":{"type":"ask_cv"}}')).toEqual({ say: "two", action: { type: "ask_cv" } });
+    expect(parseReply('{"say":"one","action":null}\n{"say":"two","action":{"type":"ask_cv"}}')).toMatchObject({ say: "two", action: { type: "ask_cv" } });
   });
   it("never shows raw JSON to the candidate when the reply is broken", () => {
     expect(parseReply('Nice start.\n\n{"say": "Nice sta').say).toBe("Nice start.");
-    expect(parseReply("Just prose.")).toEqual({ say: "Just prose.", action: null });
+    expect(parseReply("Just prose.")).toEqual({ say: "Just prose.", action: null, complete: true });
     expect(parseReply('{"say": "cut off').say).not.toContain("{");
   });
 });
@@ -363,6 +363,24 @@ describe("candidate chat", () => {
     const f = await call("GET", `/interviews/${id}/feedback`);
     expect(f.body).toMatchObject({ status: "done", first_name: "Asha", feedback: [{ title: "Lead with your part" }] });
     expect(JSON.stringify(f.body)).not.toMatch(/overall_score|hard_bars|18 LPA/);
+  });
+});
+
+describe("a reply cut off mid-JSON", () => {
+  it("is asked for again once, so the candidate cards are not lost", async () => {
+    const { body: chat } = await call("POST", "/recruit", { recruiter: "Ananya" });
+    const replies = [
+      '{"say": "I prioritised deal experience. Subhro interviewed today", "action": {"type": "candidates", "picks": [{"id": "c-rhea", "why": "Closed four acq',
+      JSON.stringify({ say: "Here are two.", action: { type: "candidates", picks: [{ id: "c-rhea", why: "Closed four deals" }, { id: "c-dev", why: "Ran two raises" }] } }),
+    ];
+    eleven.chat = async (id, text) => {
+      eleven.chats.find((c) => c.id === id)!.said.push(text);
+      return replies.shift()!;
+    };
+    const r = await call("POST", `/recruit/${chat.id}/message`, { text: "go" });
+    expect(r.body.reply.text).toBe("Here are two.");
+    expect(r.body.reply.action.candidates.map((c: any) => c.name)).toEqual(["Rhea Kapoor", "Dev Malhotra"]);
+    expect(eleven.chats.at(-1)!.said.at(-1)).toMatch(/cut off/);
   });
 });
 

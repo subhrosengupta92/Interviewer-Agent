@@ -118,14 +118,31 @@ async function say(d: Deps, chat: Chat, text: string): Promise<{ say: string; ac
       .join("\n");
     raw = await d.eleven.chat(chat.conversation_id, `[conversation so far, for your memory]\n${history}\n[end]\n\n${text}`);
   }
-  return parseReply(raw);
+  return (await resendIfCutOff(d, chat.conversation_id, raw));
+}
+
+/** If a reply was cut off mid-JSON (losing its action), asks once for a shorter version of the same reply. */
+export async function resendIfCutOff(d: Deps, conversationId: string, raw: string) {
+  const first = parseReply(raw);
+  if (first.complete) return first;
+  try {
+    const again = parseReply(
+      await d.eleven.chat(
+        conversationId,
+        "[Your last reply was cut off before its JSON finished, so nothing after the message reached the app. Send the same reply again, complete, and shorter: at most 20 words in \"say\" and at most 9 words in any other text field.]",
+      ),
+    );
+    return again.complete ? again : first;
+  } catch {
+    return first;
+  }
 }
 
 /**
  * Reads the agent's reply. It should be one JSON object, but models sometimes add a line of prose
  * before it or repeat themselves, so take the last complete object that has a "say".
  */
-export function parseReply(raw: string): { say: string; action: Record<string, unknown> | null } {
+export function parseReply(raw: string): { say: string; action: Record<string, unknown> | null; complete: boolean } {
   const objects: string[] = [];
   let depth = 0;
   let start = -1;
@@ -144,7 +161,7 @@ export function parseReply(raw: string): { say: string; action: Record<string, u
     try {
       const o = JSON.parse(text) as { say?: unknown; action?: unknown };
       if (typeof o.say === "string" && o.say.trim())
-        return { say: o.say.trim(), action: o.action && typeof o.action === "object" ? (o.action as Record<string, unknown>) : null };
+        return { say: o.say.trim(), action: o.action && typeof o.action === "object" ? (o.action as Record<string, unknown>) : null, complete: true };
     } catch {
       /* try the one before */
     }
@@ -154,7 +171,8 @@ export function parseReply(raw: string): { say: string; action: Record<string, u
   const prose = (cut >= 0 ? raw.slice(0, cut) : raw).trim();
   // Cut off mid-object with nothing before it: rescue whatever of the message was written.
   const partial = /"say"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(raw)?.[1]?.replace(/\\n/g, "\n").replace(/\\(.)/g, "$1").trim();
-  return { say: prose || partial || "Sorry, could you say that again?", action: null };
+  // "complete" is false when the reply looked like JSON but was cut off, which loses any action it carried.
+  return { say: prose || partial || "Sorry, could you say that again?", action: null, complete: !/\{\s*"say"/.test(raw) };
 }
 
 /** Turns the agent's requested action into something the phone can show, doing the server work it implies. */
