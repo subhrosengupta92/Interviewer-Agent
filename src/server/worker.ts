@@ -58,8 +58,8 @@ export default {
     return new Response(request.method === "HEAD" ? null : body, {
       headers: {
         "content-type": TYPES[ext] ?? "application/octet-stream",
-        // Pages always revalidate; hashed chunks and the rest are cached briefly.
-        "cache-control": ext === "html" ? "no-cache" : "public, max-age=300",
+        // Nothing is cached by the browser, so a deploy shows up on the next normal reload.
+        "cache-control": "no-cache, must-revalidate",
         ...SECURITY,
       },
     });
