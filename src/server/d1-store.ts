@@ -34,7 +34,7 @@ export class D1Store implements Store {
 
   async recentInterviews(limit: number): Promise<Interview[]> {
     const { results } = await this.db
-      .prepare("SELECT data FROM interviews WHERE id NOT LIKE 'chat_%' AND id NOT LIKE 'recruit_%' AND id NOT LIKE 'jd_%' ORDER BY created_at DESC LIMIT ?")
+      .prepare("SELECT data FROM interviews WHERE id NOT LIKE 'chat_%' AND id NOT LIKE 'recruit_%' AND id NOT LIKE 'jd_%' AND id NOT LIKE 'dash_%' ORDER BY created_at DESC LIMIT ?")
       .bind(limit)
       .all<{ data: string }>();
     // Other records share this table; anything that is not an interview is dropped even if its ID is unfamiliar.

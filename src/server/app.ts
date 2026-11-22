@@ -8,6 +8,7 @@ import type { Interview, InterviewInput } from "../lib/types";
 import { LANGUAGES, VOICES, languageByCode, previewLine, voiceById } from "../lib/voices";
 import { ROLES, roleById } from "../data/roles";
 import { handleChat, publicRole } from "./chat";
+import { handleDashboard } from "./dashboard";
 import { handleJd, handleRecruit } from "./recruit";
 import { ValidationError, validateInput, validatePlan, validateReport } from "../lib/validate";
 
@@ -224,6 +225,8 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
     if (parts[0] === "recruit") return await handleRecruit(request, parts, d, (iv) => advance(d, iv));
 
     if (parts[0] === "jd") return await handleJd(request, parts, d);
+
+    if (parts[0] === "dashboard") return await handleDashboard(request, parts, url, d);
 
     if (parts[0] === "roles" && method === "GET") {
       if (!parts[1]) return json({ roles: ROLES.map(publicRole) });

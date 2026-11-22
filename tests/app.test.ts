@@ -679,3 +679,35 @@ describe("hiring from a shared job description", () => {
     expect((await call("POST", `/recruit/${chat.id}/room/ask`, { text: " " })).status).toBe(400);
   });
 });
+
+describe("dashboard", () => {
+  it("lists the sample roles with their interviews and returns a transcript to read", async () => {
+    const board = (await call("GET", "/dashboard")).body;
+    expect(board.roles.map((r: any) => [r.id, r.sample, r.interviews.length])).toEqual([["sde2", true, 4], ["corpdev", true, 4]]);
+    expect(board.roles[0].interviews[0]).toMatchObject({ id: "s-meera", name: "Meera Krishnan", areas: [5, 4, 5, 4] });
+    const t = (await call("GET", "/dashboard/transcript/s-meera")).body;
+    expect(t.turns[0]).toEqual({ role: "agent", text: expect.stringContaining("refund retry flow") });
+    expect(t.turns).toHaveLength(12);
+    expect((await call("GET", "/dashboard/transcript/s-nobody")).status).toBe(404);
+    // Someone else's real interview cannot be read by guessing its ID.
+    expect((await call("GET", "/dashboard/transcript/live-iv1")).status).toBe(404);
+  });
+
+  it("answers across the selected transcripts and resends them only when the selection changes", async () => {
+    eleven.nextReply = "Sneha Patil: \"exactly-once effect\".";
+    const a = await call("POST", "/dashboard/ask", { ids: ["s-meera", "s-sneha"], text: "Who is strongest on design?" });
+    expect(a.body.answer).toContain("Sneha Patil");
+    const said = eleven.chats.at(-1)!.said;
+    expect(said[0]).toMatch(/<interviews>[\s\S]*## Meera Krishnan[\s\S]*<transcript>[\s\S]*CANDIDATE: All of the retry side[\s\S]*## Sneha Patil[\s\S]*Who is strongest on design\?$/);
+    expect(said[0]).not.toContain("Rahul Verma");
+    await call("POST", "/dashboard/ask", { ids: ["s-sneha", "s-meera"], text: "And on incidents?", session: a.body.session });
+    expect(said[1]).toMatch(/selection has changed|And on incidents\?/);
+    await call("POST", "/dashboard/ask", { ids: ["s-sneha", "s-meera"], text: "Notice periods?", session: a.body.session });
+    expect(said[2]).toBe("Notice periods?");
+    await call("POST", "/dashboard/ask", { ids: ["s-rhea"], text: "Tell me about her deals", session: a.body.session });
+    expect(said[3]).toMatch(/^\[The selection has changed[\s\S]*## Rhea Kapoor/);
+    expect((await call("GET", `/dashboard?session=${a.body.session}`)).body.messages).toHaveLength(8);
+    expect((await call("POST", "/dashboard/ask", { ids: [], text: "x" })).status).toBe(400);
+    expect((await call("POST", "/dashboard/ask", { ids: ["s-nobody"], text: "x" })).status).toBe(404);
+  });
+});
