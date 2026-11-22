@@ -19,9 +19,12 @@
 
 /* left: roles and their interviews */
 .side { min-height: 0; overflow-y: auto; border-right: 1px solid var(--line); background: #fafbfc; padding: 16px 14px; }
+.side label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin: 0 2px 5px; }
+.side select { width: 100%; font: inherit; font-size: 15.5px; font-weight: 600; color: var(--navy); padding: 11px 38px 11px 12px; border: 1.5px solid var(--navy); border-radius: 10px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23101828' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center / 16px; appearance: none; -webkit-appearance: none; cursor: pointer; text-overflow: ellipsis; margin-bottom: 10px; }
+.side select:focus-visible { box-shadow: 0 0 0 3px var(--p-lilac); outline: 0; }
 .side input[type="search"] { width: 100%; font: inherit; font-size: 14.5px; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; outline: 0; }
 .side input[type="search"]:focus-visible { border-color: var(--navy); }
-.role { margin-top: 16px; }
+.role { margin-top: 14px; }
 .role-head { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: start; padding: 0 4px 8px; }
 .role-head b { font-size: 15.5px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
 .role-head small { grid-column: 1; font-size: 12.5px; color: var(--ink-2); }

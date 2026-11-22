@@ -24,8 +24,10 @@
 <main class="desk" id="desk">
   <div class="desk-body">
     <aside class="side" aria-label="Roles and interviews">
-      <input type="search" id="find" placeholder="Find a candidate" aria-label="Find a candidate">
-      <div id="roles" class="roles"><p class="wait"><span class="spin"></span>Loading interviews…</p></div>
+      <label for="role">Role</label>
+      <select id="role" disabled><option value="">Loading roles…</option></select>
+      <input type="search" id="find" placeholder="Find a candidate" aria-label="Find a candidate" hidden>
+      <div id="roles" class="roles"></div>
     </aside>
 
     <section class="talk" aria-labelledby="talk-h">
@@ -37,7 +39,7 @@
             <button type="button" id="clear">Clear conversation</button>
           </div>
         </div>
-        <p id="scope">Select interviews on the left, then ask anything across them.</p>
+        <p id="scope">Choose a role on the left to see who has interviewed for it.</p>
         <div class="picked" id="picked"></div>
       </header>
       <div class="thread" id="thread" role="log" aria-live="polite">
@@ -45,7 +47,7 @@
           <h2 id="intro-h">What this dashboard does</h2>
           <p>Every candidate here has done a first-round voice interview. This is where you compare them and question what they said.</p>
           <ol>
-            <li><b>Pick interviews.</b> Tick up to eight on the left, from one role or several.</li>
+            <li><b>Choose a role.</b> Pick it on the left to see everyone interviewed for it, then tick who to include.</li>
             <li><b>Compare scores.</b> A table shows each person's first-round score by area.</li>
             <li><b>Read a transcript.</b> Click a name to open the full interview on the right.</li>
             <li><b>Ask anything.</b> Answers come from the transcripts, with the candidate's own words quoted.</li>

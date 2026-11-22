@@ -26,6 +26,8 @@ let roles: Role[] = [];
 let max = 8;
 let busy = false;
 let reading = "";
+/** The role being looked at. Empty until one is chosen from the dropdown. */
+let active = "";
 const chosen = new Set<string>();
 
 /** The hiring team's own chat, if they have one in this browser: its real interviews are listed too. */
@@ -84,23 +86,33 @@ function line(kind: "q" | "a", text: string) {
 }
 
 function drawRoles() {
+  const role = roles.find((r) => r.id === active);
+  $("#find").hidden = !role;
+  if (!role) return void ($("#roles").innerHTML = "");
   const filter = ($("#find") as HTMLInputElement).value.trim().toLowerCase();
-  const html = roles
-    .map((r) => {
-      const list = r.interviews.filter((i) => !filter || `${i.name} ${i.headline}`.toLowerCase().includes(filter));
-      if (!list.length) return "";
-      const all = r.interviews.every((i) => chosen.has(i.id));
-      return `<section class="role"><div class="role-head"><b>${esc(r.title)}</b><button type="button" data-all="${esc(r.id)}">${all ? "Clear" : "Select all"}</button>
-        <small>${esc([r.company, `${r.interviews.length} interviewed`].filter(Boolean).join(" · "))}</small><span class="tag ${r.sample ? "" : "mine"}">${r.sample ? "Sample role" : "Your role"}</span></div>
-        ${list
+  const list = role.interviews.filter((i) => !filter || `${i.name} ${i.headline}`.toLowerCase().includes(filter));
+  const all = role.interviews.every((i) => chosen.has(i.id));
+  $("#roles").innerHTML = `<section class="role"><div class="role-head"><b>${role.interviews.length} interviewed</b><button type="button" data-all="${esc(role.id)}">${all ? "Clear" : "Select all"}</button>
+      <small>${esc([role.company, role.location].filter(Boolean).join(" · "))}</small><span class="tag ${role.sample ? "" : "mine"}">${role.sample ? "Sample role" : "Your role"}</span></div>
+      ${
+        list
           .map(
             (i) => `<div class="iv ${chosen.has(i.id) ? "on" : ""} ${reading === i.id ? "open" : ""}"><input type="checkbox" data-pick="${esc(i.id)}" ${chosen.has(i.id) ? "checked" : ""} aria-label="Include ${esc(i.name)}">
             <button type="button" class="who" data-read="${esc(i.id)}" title="Read the transcript"><b>${esc(i.name)}</b><span>${esc(i.headline)}</span></button><span class="sc">${i.score.toFixed(1)}</span></div>`,
           )
-          .join("")}</section>`;
-    })
-    .join("");
-  $("#roles").innerHTML = html || '<p class="none">No candidate matches that.</p>';
+          .join("") || '<p class="none">No candidate matches that.</p>'
+      }</section>`;
+}
+
+/** Switches to a role: its interviews are listed and all of them start selected. */
+function chooseRole(id: string) {
+  active = id;
+  chosen.clear();
+  if (reading) closeReader();
+  ($("#find") as HTMLInputElement).value = "";
+  for (const i of roles.find((r) => r.id === id)?.interviews.slice(0, max) ?? []) chosen.add(i.id);
+  drawRoles();
+  drawPicked();
 }
 
 /** Scores side by side for the chosen interviews, so the strong and weak areas show before any question is asked. */
@@ -109,10 +121,12 @@ function drawPicked() {
   const sameRole = new Set(list.map((i) => roleOf(i.id).id)).size === 1;
   $("#scope").textContent = list.length
     ? `Asking across ${list.length} transcript${list.length === 1 ? "" : "s"}${sameRole ? ` for ${roleOf(list[0].id).title}` : ", from different roles"}.`
-    : "Select interviews on the left, then ask anything across them.";
+    : active
+      ? "Tick the interviews you want to ask about."
+      : "Choose a role on the left to see who has interviewed for it.";
   $("#picked").innerHTML = list.map((i) => `<span>${esc(i.name)}</span>`).join("");
   const matrix = $("#matrix");
-  if (!list.length) matrix.innerHTML = '<p class="hint">Nothing selected yet. Tick the interviews you want to compare.</p>';
+  if (!list.length) matrix.innerHTML = `<p class="hint">${active ? "Nothing selected yet. Tick the interviews you want to compare." : "Choose a role on the left to begin."}</p>`;
   else if (!sameRole) matrix.innerHTML = '<p class="hint">These interviews are for different roles, so their scores are not shown side by side. You can still ask across them.</p>';
   else {
     const role = roleOf(list[0].id);
@@ -229,6 +243,7 @@ document.addEventListener("change", (e) => {
   if (box.dataset?.pick) toggle(box.dataset.pick, box.checked);
 });
 $("#find").addEventListener("input", drawRoles);
+$("#role").addEventListener("change", (e) => chooseRole((e.target as HTMLSelectElement).value));
 $("#help").addEventListener("click", () => intro(true));
 $("#intro-ok").addEventListener("click", () => intro(false));
 $("#clear").addEventListener("click", clearTalk);
@@ -245,8 +260,10 @@ api<Board>(withChat(`/dashboard${session ? `?session=${encodeURIComponent(sessio
   .then((b) => {
     roles = b.roles;
     max = b.max_selected;
-    // Start with the first role selected, so there is something to ask about straight away.
-    for (const i of roles[0]?.interviews.slice(0, max) ?? []) chosen.add(i.id);
+    // The role is chosen first; its interviews are listed after that.
+    const select = $("#role") as HTMLSelectElement;
+    select.innerHTML = `<option value="">Choose a role</option>${roles.map((r) => `<option value="${esc(r.id)}">${esc(r.title)}</option>`).join("")}`;
+    select.disabled = false;
     drawRoles();
     drawPicked();
     for (const m of b.messages) line(m.from === "user" ? "q" : "a", m.text);
@@ -259,4 +276,7 @@ api<Board>(withChat(`/dashboard${session ? `?session=${encodeURIComponent(sessio
     // Open with what this screen is for, until it has been dismissed once.
     if (!seen) intro(true);
   })
-  .catch((e) => ($("#roles").innerHTML = `<p class="none">${esc((e as Error).message)}</p>`));
+  .catch((e) => {
+    ($("#role") as HTMLSelectElement).innerHTML = '<option value="">Could not load roles</option>';
+    $("#roles").innerHTML = `<p class="none">${esc((e as Error).message)}</p>`;
+  });
