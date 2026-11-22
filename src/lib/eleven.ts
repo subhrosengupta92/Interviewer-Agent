@@ -119,7 +119,8 @@ export class ElevenClient implements Eleven {
       `/v1/convai/conversations/${conversationId}/messages`,
       { method: "POST", body: JSON.stringify({ input: [{ type: "user_message", content: [{ type: "text", text }] }] }) },
     );
-    const reply = (turn.output ?? []).map((o) => o.text).join("\n").trim();
+    // A long reply arrives as several pieces of one text; joining with anything but "" would corrupt JSON replies.
+    const reply = (turn.output ?? []).map((o) => o.text).join("").trim();
     if (!reply) throw new Error(`Chat turn ended with status ${turn.status} and no reply`);
     return reply;
   }

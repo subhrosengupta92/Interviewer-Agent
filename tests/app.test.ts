@@ -107,7 +107,7 @@ beforeEach(() => {
   d = {
     store: new MemoryStore(),
     eleven,
-    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C" },
+    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C", recruiter: "R", fit: "F" },
     toolSecret: "s3cret",
     now: () => clock,
     newId: () => `iv${++n}`,
@@ -334,6 +334,36 @@ describe("candidate chat", () => {
     const f = await call("GET", `/interviews/${id}/feedback`);
     expect(f.body).toMatchObject({ status: "done", first_name: "Asha", feedback: [{ title: "Lead with your part" }] });
     expect(JSON.stringify(f.body)).not.toMatch(/overall_score|hard_bars|18 LPA/);
+  });
+});
+
+describe("recruiter chat", () => {
+  it("stores the job description, shows at most five real candidates with seven pointers each, and connects", async () => {
+    const { body: chat } = await call("POST", "/recruit", { recruiter: "Ananya at Northwind Pay" });
+    eleven.nextReply = JSON.stringify({ say: "JD ready", action: { type: "jd", jd: { title: "SDE-II", company: "Northwind Pay", location: "Bengaluru", salary: "₹32–42 LPA", experience: "3–6 years", summary: "s", responsibilities: ["a"], requirements: ["b"] } } });
+    const j = await call("POST", `/recruit/${chat.id}/message`, { text: "hiring an SDE-II" });
+    expect(j.body.reply.action).toMatchObject({ type: "jd", title: "SDE-II", url: `/jd?chat=${chat.id}` });
+    expect((await call("GET", `/recruit/${chat.id}/jd`)).body.requirements).toEqual(["b"]);
+
+    const picks = ["c-meera", "c-ghost", "c-sneha", "c-fatima", "c-arjun", "c-rahul", "c-divya", "c-meera"].map((id) => ({ id, why: "Built refunds herself" }));
+    eleven.nextReply = JSON.stringify({ say: "Here are five", action: { type: "candidates", picks, learned: ["payments is a must"] } });
+    const c = await call("POST", `/recruit/${chat.id}/message`, { text: "go" });
+    expect(c.body.reply.action.candidates.map((x: any) => x.id)).toEqual(["c-meera", "c-sneha", "c-fatima", "c-arjun", "c-rahul"]);
+    expect(c.body.reply.action).toMatchObject({ learned: ["payments is a must"], round: 1 });
+    expect(JSON.stringify(c.body)).not.toMatch(/expects|₹38 LPA/);
+    // The seven pointers are written on first open, topped up from the interview record, then kept.
+    eleven.nextReply = JSON.stringify({ pointers: ["Five years in payments", "Designed refund retries"] });
+    const fit = await call("GET", `/recruit/${chat.id}/fit/c-meera`);
+    expect(fit.body.pointers).toHaveLength(7);
+    expect(fit.body.pointers.slice(0, 3)).toEqual(["Five years in payments", "Designed refund retries", "Built refunds herself"]);
+    eleven.nextReply = "not json at all";
+    expect((await call("GET", `/recruit/${chat.id}/fit/c-meera`)).body.pointers[0]).toBe("Five years in payments");
+    expect((await call("GET", `/recruit/${chat.id}/fit/c-sneha`)).body.pointers).toHaveLength(7);
+    expect((await call("GET", `/recruit/${chat.id}/fit/c-tanvi`)).status).toBe(404);
+
+    eleven.nextReply = JSON.stringify({ say: "Connecting you", action: { type: "connect", candidate_id: "c-meera", intro: "Meera, meet Ananya." } });
+    const k = await call("POST", `/recruit/${chat.id}/message`, { text: "connect me with Meera" });
+    expect(k.body.reply.action).toMatchObject({ type: "connect", candidate: { name: "Meera Krishnan" }, intro: "Meera, meet Ananya." });
   });
 });
 

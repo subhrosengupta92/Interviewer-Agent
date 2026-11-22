@@ -12,6 +12,7 @@ import {
 } from "../agents/interviewer";
 import { CONCIERGE_MODEL, CONCIERGE_PROMPT } from "../agents/concierge";
 import { PLANNER_MODEL, PLANNER_PROMPT } from "../agents/planner";
+import { FIT_MODEL, FIT_PROMPT, RECRUITER_MODEL, RECRUITER_PROMPT } from "../agents/recruiter";
 import { DEFAULT_VOICE, LANGUAGES } from "../src/lib/voices";
 import { SCORER_MODEL, SCORER_PROMPT } from "../agents/scorer";
 import { el } from "./eleven-admin";
@@ -173,7 +174,17 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
   },
 });
 
-const ids = { planner, interviewer, scorer, concierge };
+const recruiterConfig = textAgent(RECRUITER_PROMPT, RECRUITER_MODEL);
+recruiterConfig.conversation_config.agent.prompt.temperature = 0.4;
+recruiterConfig.conversation_config.agent.prompt.max_tokens = 2000;
+(recruiterConfig.conversation_config.agent as Record<string, unknown>).dynamic_variables = {
+  dynamic_variable_placeholders: { recruiter: "a hiring manager" },
+};
+const recruiter = await upsertAgent(`${PREFIX}recruiter`, recruiterConfig);
+const fitConfig = textAgent(FIT_PROMPT, FIT_MODEL);
+fitConfig.conversation_config.agent.prompt.max_tokens = 800;
+const fit = await upsertAgent(`${PREFIX}fit-writer`, fitConfig);
+const ids = { planner, interviewer, scorer, concierge, recruiter, fit };
 writeFileSync(new URL("../agents/ids.json", import.meta.url), JSON.stringify(ids, null, 2) + "\n");
 if (oldTimeTool) await el(`/v1/convai/tools/${oldTimeTool.id}`, "DELETE");
 console.log("Synced", ids, { briefTool });

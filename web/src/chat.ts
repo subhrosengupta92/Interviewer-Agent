@@ -20,6 +20,8 @@ const sendBtn = $("#send") as HTMLButtonElement;
 const MIN_CALL_SECS = 45;
 
 let chatId = "";
+/** Resolves once the chat has been opened, so a message typed early is not lost. */
+let ready: Promise<unknown> = Promise.resolve();
 let applied: string[] = [];
 let waiting = 0;
 
@@ -73,6 +75,7 @@ function setPresence(typing: boolean) {
 async function send(text: string, kind: "text" | "voice" | "event" = "text", extra: Record<string, unknown> = {}) {
   setPresence(true);
   try {
+    await ready;
     const { reply } = await api<{ reply: Msg }>(`/chat/${chatId}/message`, "POST", { text, kind, ...extra });
     setPresence(false);
     renderBot(reply, true);
@@ -565,4 +568,4 @@ window.addEventListener("beforeunload", (e) => {
   if (call && !callOver) e.preventDefault();
 });
 
-void start();
+ready = start();

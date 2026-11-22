@@ -2,5 +2,7 @@
   "planner": "agent_6401m7z6h1ywfczs4r13te3960t2",
   "interviewer": "agent_4901m7z6h5mpex7bc7dy2q10ars7",
   "scorer": "agent_3801m7z6h40hemc98g55833hw0zr",
-  "concierge": "agent_5001m81749eneqat65gv8n2r6xy3"
+  "concierge": "agent_5001m81749eneqat65gv8n2r6xy3",
+  "recruiter": "agent_1001m817y276f9qs9b19ds53j9f1",
+  "fit": "agent_1901m8188wrxf3yv42njbvkr0j9g"
 }
