@@ -17,7 +17,8 @@ interface Role { id: string; title: string; company: string; location: string; s
 interface Board { roles: Role[]; messages: { from: "user" | "bot"; text: string }[]; max_selected: number }
 interface Transcript { id: string; name: string; role: string; score: number; minutes: number; summary: string; turns: { role: "agent" | "candidate"; text: string }[]; report_url: string | null }
 
-const SESSION_KEY = "firstround-dash";
+const SESSION_KEY = "firstround-recruiter-dash";
+const INTRO_KEY = "firstround-recruiter-dash-intro";
 const thread = $("#thread");
 const input = $("#q") as HTMLInputElement;
 const sendBtn = $("#ask-send") as HTMLButtonElement;
@@ -44,6 +45,33 @@ try {
 const withChat = (path: string) => (ownChat ? `${path}${path.includes("?") ? "&" : "?"}chat=${encodeURIComponent(ownChat)}` : path);
 const roleOf = (id: string) => roles.find((r) => r.interviews.some((i) => i.id === id))!;
 const picked = () => roles.flatMap((r) => r.interviews.filter((i) => chosen.has(i.id)));
+
+/** The introduction shows until it is dismissed, and again whenever "What this does" is pressed. */
+function intro(show: boolean) {
+  $("#intro").hidden = !show;
+  if (show) thread.scrollTop = 0;
+  else {
+    try {
+      localStorage.setItem(INTRO_KEY, "seen");
+    } catch {
+      /* private window */
+    }
+  }
+}
+
+/** Starts again: no questions, no answers, and the agent forgets the earlier conversation. */
+function clearTalk() {
+  if (busy) return;
+  thread.querySelectorAll(".q, .a").forEach((el) => el.remove());
+  $(".talk").classList.remove("started");
+  session = "";
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* private window */
+  }
+  thread.scrollTop = 0;
+}
 
 function line(kind: "q" | "a", text: string) {
   $(".talk").classList.add("started");
@@ -201,6 +229,9 @@ document.addEventListener("change", (e) => {
   if (box.dataset?.pick) toggle(box.dataset.pick, box.checked);
 });
 $("#find").addEventListener("input", drawRoles);
+$("#help").addEventListener("click", () => intro(true));
+$("#intro-ok").addEventListener("click", () => intro(false));
+$("#clear").addEventListener("click", clearTalk);
 $("#r-close").addEventListener("click", closeReader);
 document.addEventListener("keydown", (e) => e.key === "Escape" && reading && closeReader());
 $("#ask-form").addEventListener("submit", (e) => {
@@ -219,5 +250,13 @@ api<Board>(withChat(`/dashboard${session ? `?session=${encodeURIComponent(sessio
     drawRoles();
     drawPicked();
     for (const m of b.messages) line(m.from === "user" ? "q" : "a", m.text);
+    let seen = false;
+    try {
+      seen = localStorage.getItem(INTRO_KEY) === "seen";
+    } catch {
+      /* private window */
+    }
+    // Open with what this screen is for, until it has been dismissed once.
+    if (!seen) intro(true);
   })
   .catch((e) => ($("#roles").innerHTML = `<p class="none">${esc((e as Error).message)}</p>`));
