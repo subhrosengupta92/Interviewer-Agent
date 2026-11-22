@@ -1,0 +1,413 @@
+// The candidate chat: a live agent decides what to say and which piece of UI the phone shows next.
+import { type Role, inviteByCode, roleById, roleJobDescription } from "../data/roles";
+import { extractJson } from "../lib/json";
+import type { Interview, InterviewInput } from "../lib/types";
+import { voiceById } from "../lib/voices";
+import type { Deps } from "./app";
+import { addApplicant, roleFromShare } from "./recruit";
+
+export interface ChatMessage {
+  from: "user" | "bot";
+  text: string;
+  kind?: "text" | "voice" | "event";
+  action?: ChatAction | null;
+}
+
+export type ChatAction =
+  | { type: "join" }
+  | { type: "ask_cv" }
+  | { type: "start_interview"; role_id: string; interview_id: string; role_title: string; company: string }
+  | { type: "roles"; roles: RoleCard[] }
+  | { type: "feedback"; url: string };
+
+export interface RoleCard {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  salary: string;
+  summary: string;
+}
+
+export interface Chat {
+  id: string;
+  kind: "chat";
+  created_at: number;
+  mode: "self" | "invite";
+  invite_code?: string;
+  conversation_id: string;
+  messages: ChatMessage[];
+  cv_text?: string;
+  candidate_name?: string;
+  role_id?: string;
+  interview_id?: string;
+  /** Title and company of the interview in interview_id, for calling again. */
+  interview_for?: { title: string; company: string };
+  /** Set when the candidate came from a company's shared job description: the role, and whose it is. */
+  custom?: { role: Role; recruit_id: string; invited_by: string };
+  /** The interview already reported to that company's role screen. */
+  reported?: string;
+  /** Something that happened outside the conversation, to tell the chat agent with the next message. */
+  untold?: string;
+  shown_roles: string[];
+  applied: string[];
+  /** Open roles scored against the CV, best first. Set when a CV is uploaded. */
+  ranking?: RoleMatch[];
+  /** The matcher's one-line reading of the CV. */
+  profile?: string;
+}
+
+export interface RoleMatch {
+  role_id: string;
+  score: number;
+  why: string;
+}
+
+const MAX_ROLES_SHOWN = 3;
+/** Out of 100, from the matcher. */
+const MIN_FIT_TO_SHOW = 40;
+const CV_FOR_AGENT = 7000;
+
+export const roleCard = (r: Role): RoleCard => ({
+  id: r.id,
+  title: r.title,
+  company: r.company,
+  location: r.location,
+  salary: r.salary,
+  summary: r.summary,
+});
+
+/** What candidates may see of a role: everything except the company's budget. */
+export const publicRole = ({ budget: _budget, competencies: _c, ...rest }: Role) => rest;
+
+/** The role an invited candidate is interviewing for: a company's own job description, or one of the demo invites. */
+const invitedRole = (chat: Pick<Chat, "invite_code" | "custom">) => chat.custom?.role ?? roleById(inviteByCode(chat.invite_code)?.role_id);
+
+function entryLine(chat: Pick<Chat, "mode" | "invite_code" | "custom">): string {
+  const invite = chat.custom ?? inviteByCode(chat.invite_code);
+  const role = invitedRole(chat);
+  if (chat.mode === "invite" && invite && role)
+    return `The candidate was invited by ${invite.invited_by} to interview for ${role.title} at ${role.company} (role_id ${role.id}). Greet them with that in mind. Their interview is for that role only.`;
+  return "The candidate found FirstRound on their own (self-discovery). They have not been invited for any particular role.";
+}
+
+/** Best guess at the candidate's name: the first short line of the CV that looks like one. */
+export function nameFromCv(cv: string): string {
+  for (const line of cv.split("\n").slice(0, 8)) {
+    const t = line.trim();
+    if (/^[\p{L}][\p{L}.' -]{2,40}$/u.test(t) && t.split(/\s+/).length <= 4 && !/curriculum|resume|profile|summary/i.test(t)) {
+      return t
+        .toLowerCase()
+        .replace(/(^|[\s.'-])\p{L}/gu, (m) => m.toUpperCase());
+    }
+  }
+  return "Candidate";
+}
+
+function interviewInput(chat: Chat, role: Role): InterviewInput {
+  return {
+    candidate_name: chat.candidate_name ?? "Candidate",
+    role_title: role.title,
+    cv_text: chat.cv_text ?? "",
+    job_description: roleJobDescription(role),
+    competencies: role.competencies,
+    hard_bars: { compensation_budget: role.budget, location: role.location },
+    minutes: 10,
+    // Ring straight away; the written plan is picked up in the background when it is ready.
+    instant: true,
+  };
+}
+
+/** Stands in for a CV when the candidate calls before sharing one. */
+const NO_CV = `(No CV has been shared yet: the candidate pressed the call button to start straight away. There is nothing to read here, so do not refer to a CV. Their name is not known either: "Candidate" is a placeholder, so never call them that. Early on, ask their name and what they do now, use the name from then on, then ask them to walk you through their career. Build every later question on the roles, projects and numbers they tell you about, and dig into those exactly as you would into claims on a CV.)`;
+
+/** The interview a self-discovery candidate gets when they call before any role has been matched. */
+const OPEN_TITLE = "general first-round";
+const OPEN_INTERVIEW = {
+  role_title: OPEN_TITLE,
+  job_description:
+    "A general first-round conversation for the FirstRound hiring network. There is no specific role yet: the aim is to understand what this person has done, how deep their expertise goes and what they want next, so they can be matched to open roles afterwards.",
+  competencies: [
+    { name: "Depth in their own field", kind: "functional" as const, definition: "Explains their main work precisely: how it worked, the decisions they made and why, and the numbers behind it." },
+    { name: "Problem solving", kind: "functional" as const, definition: "Breaks down a hard problem from their own work and reasons through trade-offs when pushed." },
+    { name: "Ownership", kind: "behavioural" as const, definition: "Is exact about their own part in team work and follows things through to an outcome." },
+    { name: "Communication", kind: "behavioural" as const, definition: "Answers the question asked, clearly and briefly, and stays structured under follow-up." },
+  ],
+};
+
+/**
+ * Makes sure the chat has an interview that can be called, treating every pre-interview step as done.
+ * Used when the candidate presses the call button, and when the agent asks for a call again.
+ */
+async function ensureInterview(
+  chat: Chat,
+  createInterview: (input: InterviewInput) => Promise<Interview>,
+  preferred?: Role,
+): Promise<{ interview_id: string; role_id: string; role_title: string; company: string; created: boolean }> {
+  // A candidate without a CV calls back into the interview they already have.
+  if (chat.interview_id && chat.interview_for && !chat.cv_text)
+    return { interview_id: chat.interview_id, role_id: chat.role_id ?? "", role_title: chat.interview_for.title, company: chat.interview_for.company, created: false };
+  const invited = invitedRole(chat);
+  // Invited candidates interview for the invited role. Otherwise the matcher's top role wins over the agent's pick,
+  // and a repeat call stays on the role already chosen.
+  const role = (chat.mode === "invite" ? invited : undefined) ?? roleById(chat.role_id) ?? roleById(chat.ranking?.[0]?.role_id) ?? preferred ?? invited;
+  const input: InterviewInput = role
+    ? interviewInput(chat, role)
+    : { candidate_name: chat.candidate_name ?? "Candidate", cv_text: "", ...OPEN_INTERVIEW, hard_bars: {}, minutes: 10, instant: true };
+  const iv = await createInterview({ ...input, cv_text: chat.cv_text || NO_CV });
+  chat.role_id = role?.id;
+  chat.interview_id = iv.id;
+  chat.interview_for = { title: role?.title ?? OPEN_TITLE, company: role?.company ?? "FirstRound" };
+  return { interview_id: iv.id, role_id: role?.id ?? "", role_title: chat.interview_for.title, company: chat.interview_for.company, created: true };
+}
+
+async function say(d: Deps, chat: Chat, text: string): Promise<{ say: string; action: Record<string, unknown> | null }> {
+  let raw: string;
+  try {
+    raw = await d.eleven.chat(chat.conversation_id, text);
+  } catch {
+    // The chat may have been idle through a whole interview; reopen it and replay what was said.
+    chat.conversation_id = await d.eleven.openChat(d.agents.concierge, { entry: entryLine(chat) });
+    const history = chat.messages
+      .slice(-30)
+      .map((m) => `${m.from === "bot" ? "YOU" : "CANDIDATE"}: ${m.text.slice(0, 600)}`)
+      .join("\n");
+    raw = await d.eleven.chat(chat.conversation_id, `[conversation so far, for your memory]\n${history}\n[end]\n\n${text}`);
+  }
+  return (await resendIfCutOff(d, chat.conversation_id, raw));
+}
+
+/** If a reply was cut off mid-JSON (losing its action), asks once for a shorter version of the same reply. */
+export async function resendIfCutOff(d: Deps, conversationId: string, raw: string) {
+  const first = parseReply(raw);
+  if (first.complete) return first;
+  try {
+    const again = parseReply(
+      await d.eleven.chat(
+        conversationId,
+        "[Your last reply was cut off before its JSON finished, so nothing after the message reached the app. Send the same reply again, complete, and shorter: at most 20 words in \"say\" and at most 9 words in any other text field.]",
+      ),
+    );
+    return again.complete ? again : first;
+  } catch {
+    return first;
+  }
+}
+
+/**
+ * Reads the agent's reply. It should be one JSON object, but models sometimes add a line of prose
+ * before it or repeat themselves, so take the last complete object that has a "say".
+ */
+export function parseReply(raw: string): { say: string; action: Record<string, unknown> | null; complete: boolean } {
+  const objects: string[] = [];
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inString) {
+      if (ch === "\\") i++;
+      else if (ch === '"') inString = false;
+    } else if (ch === '"') inString = true;
+    else if (ch === "{") {
+      if (depth++ === 0) start = i;
+    } else if (ch === "}" && depth > 0 && --depth === 0 && start >= 0) objects.push(raw.slice(start, i + 1));
+  }
+  for (const text of objects.reverse()) {
+    try {
+      const o = JSON.parse(text) as { say?: unknown; action?: unknown };
+      if (typeof o.say === "string" && o.say.trim())
+        return { say: o.say.trim(), action: o.action && typeof o.action === "object" ? (o.action as Record<string, unknown>) : null, complete: true };
+    } catch {
+      /* try the one before */
+    }
+  }
+  // No usable JSON: show the prose, without any half-written JSON after it.
+  const cut = raw.search(/```|\{\s*"say"/);
+  const prose = (cut >= 0 ? raw.slice(0, cut) : raw).trim();
+  // Cut off mid-object with nothing before it: rescue whatever of the message was written.
+  const partial = /"say"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(raw)?.[1]?.replace(/\\n/g, "\n").replace(/\\(.)/g, "$1").trim();
+  // "complete" is false when the reply looked like JSON but was cut off, which loses any action it carried.
+  return { say: prose || partial || "Sorry, could you say that again?", action: null, complete: !/\{\s*"say"/.test(raw) };
+}
+
+/** Turns the agent's requested action into something the phone can show, doing the server work it implies. */
+async function realise(
+  d: Deps,
+  chat: Chat,
+  action: Record<string, unknown> | null,
+  createInterview: (input: InterviewInput) => Promise<Interview>,
+): Promise<ChatAction | null> {
+  if (!action) return null;
+  switch (action.type) {
+    case "join":
+      return { type: "join" };
+    case "ask_cv":
+      return { type: "ask_cv" };
+    case "start_interview": {
+      // Without a CV there is nothing to interview on yet, unless they already called in directly.
+      if (!chat.cv_text && !chat.interview_id) return { type: "ask_cv" };
+      const { created: _created, ...call } = await ensureInterview(chat, createInterview, roleById(action.role_id));
+      return { type: "start_interview", ...call };
+    }
+    case "roles": {
+      // With a ranking, show the next best roles the candidate has not seen; otherwise use the agent's picks.
+      // Roles scoring under the bar are a stretch for this CV and are not offered.
+      const ranked = (chat.ranking ?? [])
+        .filter((r) => r.score >= MIN_FIT_TO_SHOW)
+        .map((r) => r.role_id)
+        .filter((id) => !chat.shown_roles.includes(id));
+      const ids = chat.ranking?.length ? ranked : Array.isArray(action.role_ids) ? action.role_ids : [];
+      const roles = ids
+        .map((id) => roleById(id))
+        .filter((r): r is Role => !!r)
+        .filter((r, i, all) => all.indexOf(r) === i)
+        .slice(0, MAX_ROLES_SHOWN);
+      for (const r of roles) if (!chat.shown_roles.includes(r.id)) chat.shown_roles.push(r.id);
+      return roles.length ? { type: "roles", roles: roles.map(roleCard) } : null;
+    }
+    case "feedback":
+      return chat.interview_id ? { type: "feedback", url: `/feedback?id=${chat.interview_id}` } : null;
+    default:
+      return null;
+  }
+}
+
+/** Scores the open roles against the CV text. Returns [] if the matcher fails, and the chat agent then chooses. */
+export async function matchRoles(d: Deps, cv: string): Promise<{ profile: string; ranking: RoleMatch[] }> {
+  try {
+    const conversation = await d.eleven.openChat(d.agents.matcher, {});
+    const out = extractJson<{ profile?: unknown; ranking?: unknown }>(await d.eleven.chat(conversation, `<cv>\n${cv.slice(0, 12_000)}\n</cv>`));
+    const ranking = (Array.isArray(out.ranking) ? out.ranking : [])
+      .map((r) => r as Record<string, unknown>)
+      .filter((r) => roleById(r.role_id))
+      .map((r) => ({ role_id: String(r.role_id), score: Math.max(0, Math.min(100, Math.round(Number(r.score) || 0))), why: String(r.why ?? "").trim() }))
+      .filter((r, i, all) => all.findIndex((x) => x.role_id === r.role_id) === i)
+      .sort((a, b) => b.score - a.score);
+    return { profile: typeof out.profile === "string" ? out.profile.trim() : "", ranking };
+  } catch {
+    return { profile: "", ranking: [] };
+  }
+}
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+  });
+
+export async function handleChat(
+  request: Request,
+  parts: string[],
+  d: Deps,
+  createInterview: (input: InterviewInput) => Promise<Interview>,
+): Promise<Response> {
+  const method = request.method;
+
+  // POST /api/chat — open a chat
+  if (parts.length === 1 && method === "POST") {
+    const body = (await request.json().catch(() => ({}))) as { invite?: string; jd?: string };
+    // A company's shared job description works like an invitation for that role.
+    const custom = body.jd ? await roleFromShare(d, body.jd) : null;
+    if (body.jd && !custom) return json({ error: "This job description is no longer available." }, 404);
+    const invite = custom ?? inviteByCode(body.invite);
+    const role = custom?.role ?? roleById(inviteByCode(body.invite)?.role_id);
+    const base = { mode: invite ? ("invite" as const) : ("self" as const), invite_code: custom ? undefined : inviteByCode(body.invite)?.code, ...(custom ? { custom } : {}) };
+    const chat: Chat = {
+      id: `chat_${d.newId()}`,
+      kind: "chat",
+      created_at: d.now(),
+      ...base,
+      conversation_id: await d.eleven.openChat(d.agents.concierge, { entry: entryLine(base) }),
+      messages: [],
+      shown_roles: [],
+      applied: [],
+    };
+    await d.store.putDoc(chat.id, chat);
+    return json({ id: chat.id, mode: chat.mode, invite: invite && role ? { invited_by: invite.invited_by, role: roleCard(role) } : null }, 201);
+  }
+
+  const chat = await d.store.getDoc<Chat>(parts[1] ?? "");
+  if (!chat || chat.kind !== "chat") return json({ error: "Chat not found" }, 404);
+  /** Tells the company's role screen about an interview started from its job description. */
+  const report = async () => {
+    if (!chat.custom || !chat.interview_id || chat.reported === chat.interview_id) return;
+    await addApplicant(d, chat.custom.recruit_id, chat.interview_id);
+    chat.reported = chat.interview_id;
+  };
+
+  // GET /api/chat/:id — restore after a refresh
+  if (parts.length === 2 && method === "GET") {
+    return json({
+      id: chat.id,
+      mode: chat.mode,
+      messages: chat.messages,
+      interview_id: chat.interview_id ?? null,
+      applied: chat.applied,
+      match: chat.ranking ? { profile: chat.profile ?? "", ranking: chat.ranking } : null,
+    });
+  }
+
+  // POST /api/chat/:id/message
+  if (parts[2] === "message" && method === "POST") {
+    const body = (await request.json().catch(() => ({}))) as { text?: string; kind?: string; cv_text?: string };
+    let text = String(body.text ?? "").trim().slice(0, 4000);
+    const kind = body.kind === "voice" || body.kind === "event" ? body.kind : "text";
+    if (typeof body.cv_text === "string" && body.cv_text.trim()) {
+      chat.cv_text = body.cv_text.trim().slice(0, 40_000);
+      chat.candidate_name = nameFromCv(chat.cv_text);
+      const match = await matchRoles(d, chat.cv_text);
+      chat.ranking = match.ranking;
+      chat.profile = match.profile;
+      chat.role_id = undefined;
+      const lines = match.ranking.map((r, i) => {
+        const role = roleById(r.role_id)!;
+        return `${i + 1}. ${role.id} | ${role.title} at ${role.company} | fit ${r.score}/100 | ${r.why}`;
+      });
+      const matched = lines.length
+        ? `\n\n[role match, computed from the CV text. Use it as given: the interview is for number 1, and role cards follow this order. Tell the candidate the reason in your own words; never mention a number or a ranking.]\nProfile: ${match.profile}\n${lines.join("\n")}`
+        : "";
+      text = `[cv uploaded] The candidate's CV:\n${chat.cv_text.slice(0, CV_FOR_AGENT)}${matched}`;
+    }
+    if (!text) return json({ error: "Say something first." }, 400);
+    // The stored copy of a CV event stays short; the agent got the full text above.
+    chat.messages.push({ from: "user", text: body.cv_text ? "[cv uploaded]" : text, kind: body.cv_text ? "event" : kind });
+    const untold = chat.untold;
+    chat.untold = undefined;
+    const reply = await say(d, chat, untold ? `${untold}\n\n${text}` : text);
+    const action = await realise(d, chat, reply.action, createInterview);
+    const message: ChatMessage = { from: "bot", text: reply.say, action };
+    chat.messages.push(message);
+    await report();
+    await d.store.putDoc(chat.id, chat);
+    return json({ reply: message });
+  }
+
+  // POST /api/chat/:id/call — the candidate pressed the call button: go straight to the interview
+  if (parts[2] === "call" && method === "POST") {
+    const call = await ensureInterview(chat, createInterview);
+    if (call.created) {
+      // The chat agent was not part of this, so it is told with the next message why the earlier steps never happened.
+      chat.untold = `[The candidate pressed the call button and went straight to a first-round voice interview${chat.role_id ? ` for ${call.role_title} at ${call.company} (role_id ${chat.role_id})` : ", a general one with no particular role"}. Treat every step before the interview as done: do not ask for a LinkedIn link or for them to join${chat.cv_text ? "" : ". They have not shared a CV; do not ask for one now, but if they later want to be matched to roles more closely, they can upload it"}.]`;
+      chat.messages.push({ from: "user", text: chat.untold, kind: "event" });
+    }
+    if (call.created || chat.reported !== chat.interview_id) {
+      await report();
+      await d.store.putDoc(chat.id, chat);
+    }
+    const iv = await d.store.get(call.interview_id);
+    return json({ ...call, interviewer_name: voiceById(iv?.input.voice_id).name, minutes: iv?.input.minutes ?? 10, has_cv: !!chat.cv_text });
+  }
+
+  // POST /api/chat/:id/apply — from the role page
+  if (parts[2] === "apply" && method === "POST") {
+    const body = (await request.json().catch(() => ({}))) as { role_id?: string };
+    const role = roleById(body.role_id);
+    if (!role) return json({ error: "Role not found" }, 404);
+    if (!chat.applied.includes(role.id)) chat.applied.push(role.id);
+    await d.store.putDoc(chat.id, chat);
+    return json({ applied: chat.applied, role: roleCard(role) });
+  }
+
+  return json({ error: "Not found" }, 404);
+}

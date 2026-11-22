@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS interviews (
+  id TEXT PRIMARY KEY,
+  created_at INTEGER NOT NULL,
+  data TEXT NOT NULL
+);

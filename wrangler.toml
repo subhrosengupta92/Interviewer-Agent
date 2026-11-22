@@ -1,0 +1,9 @@
+name = "interviewer-agent"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "interviewer-agent"
+database_id = "5e9162c5-f02e-404a-8835-07e7315f4602"

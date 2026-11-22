@@ -1,0 +1,74 @@
+/* The role screen: everyone interviewed for one role, and questions over their notes. */
+.room {
+  --display: "Outfit", var(--sans);
+  --p-lime: #f0f7d9; --p-lilac: #ebe6fb; --p-peach: #ffe8dc; --p-sky: #deedfb; --p-mint: #dcf3e6; --p-butter: #fff3cc;
+  font-family: var(--display); font-size: 16px; line-height: 1.45; background: #fbfaf6; height: auto; min-height: 100%;
+}
+.room h1, .room h2, .room p { margin: 0; }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px clamp(16px, 4vw, 40px); }
+.bar .brand { color: inherit; text-decoration: none; }
+.bar nav { display: flex; gap: 8px; }
+.bar nav a { font-size: 14.5px; font-weight: 600; color: var(--navy); text-decoration: none; padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--navy); background: #fff; white-space: nowrap; }
+.bar nav a:hover { background: var(--navy); color: #fff; }
+
+.room main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(340px, .75fr); gap: clamp(20px, 3vw, 44px); max-width: 1320px; margin: 0 auto; padding: 8px clamp(16px, 4vw, 40px) 60px; align-items: start; }
+
+.kicker { font-size: 15px; font-weight: 600; color: var(--lime-deep); }
+.people h1 { font-size: clamp(30px, 4vw, 48px); line-height: 1.05; letter-spacing: -0.03em; font-weight: 700; margin-top: 2px; text-wrap: balance; }
+.people .pills { margin: 14px 0 0; }
+.people .pills span { background: #fff; border: 1px solid var(--line); font-size: 14px; }
+.people h2 { font-size: 18px; font-weight: 600; margin: 30px 0 12px; }
+.list { display: grid; gap: 12px; }
+
+.person { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 16px; align-items: start; background: #fff; border: 1.5px solid var(--navy); border-radius: 22px; padding: 18px 20px; box-shadow: 4px 4px 0 var(--navy); }
+.person .pic { width: 50px; height: 50px; border-radius: 16px; display: grid; place-items: center; font-weight: 700; font-size: 17px; background: var(--p-lilac); }
+.person:nth-child(4n + 2) .pic { background: var(--p-peach); } .person:nth-child(4n + 3) .pic { background: var(--p-sky); } .person:nth-child(4n + 4) .pic { background: var(--p-mint); }
+.person .name { font-size: 20px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.15; }
+.person .head { font-size: 14.5px; color: var(--ink-2); margin-top: 2px; }
+.person .tag { display: inline-block; font-size: 12.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--p-butter); margin-top: 7px; }
+.person .tag.link { background: var(--lime); }
+.person .score { text-align: right; line-height: 1; }
+.person .score b { font-size: 34px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.person .score small { display: block; font-size: 12px; color: var(--ink-2); margin-top: 3px; }
+.person .score.busy { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-2); max-width: 130px; text-align: left; line-height: 1.25; }
+.person .detail { grid-column: 2 / -1; display: grid; gap: 8px; margin-top: 6px; }
+.person .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 14.5px; }
+.person .row > b { font-weight: 600; font-size: 13px; color: var(--ink-2); width: 74px; flex: none; }
+.person .row span { background: var(--p-mint); border-radius: 8px; padding: 2px 9px; font-size: 13.5px; font-weight: 500; }
+.person .row.check span { background: none; padding: 0; font-weight: 400; color: #3a4353; flex: 1; min-width: 200px; }
+.person .acts { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.person .acts a, .person .acts button { font: inherit; font-size: 14px; font-weight: 600; padding: 7px 14px; border-radius: 999px; text-decoration: none; cursor: pointer; }
+.person .acts a { color: var(--navy); border: 1.5px solid var(--line); background: #fff; }
+.person .acts button { background: var(--navy); color: #fff; border: 1.5px solid var(--navy); }
+.empty { background: var(--p-lime); border-radius: 22px; padding: 26px; font-size: 17px; }
+.empty a { display: inline-block; margin-top: 14px; background: var(--navy); color: #fff; font-weight: 700; text-decoration: none; padding: 12px 20px; border-radius: 12px; }
+
+/* ask the notes */
+.ask { position: sticky; top: 16px; background: var(--p-lilac); border-radius: 26px; padding: 22px 20px 18px; display: flex; flex-direction: column; max-height: calc(100vh - 32px); }
+.ask h2 { font-size: 26px; font-weight: 700; letter-spacing: -0.025em; }
+.ask .sub { font-size: 14.5px; color: #4b3f86; margin-top: 2px; }
+.thread { flex: 1; min-height: 60px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin: 14px -4px 0; padding: 0 4px 4px; }
+.thread .q, .thread .a { max-width: 92%; padding: 10px 14px; border-radius: 16px; font-size: 15.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.thread .q { align-self: flex-end; background: var(--navy); color: #fff; border-bottom-right-radius: 5px; }
+.thread .a { align-self: flex-start; background: #fff; border-bottom-left-radius: 5px; }
+.thread .a.err { background: #ffe1e1; }
+.thread .a .typing i { background: #8f7be6; }
+.ideas { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.ideas button { font: inherit; font-size: 14px; font-weight: 500; text-align: left; background: #fff; border: 1.5px solid #cdc3f3; color: var(--navy); border-radius: 999px; padding: 7px 13px; cursor: pointer; }
+.ideas button:hover { border-color: var(--navy); }
+#ask-form { display: flex; gap: 8px; }
+#ask-form input { flex: 1; min-width: 0; font: inherit; font-size: 16px; border: 1.5px solid var(--navy); border-radius: 14px; padding: 12px 14px; background: #fff; outline: 0; }
+#ask-form input:focus-visible { box-shadow: 0 0 0 3px #cdc3f3; }
+#ask-form button { width: 48px; border-radius: 14px; background: var(--navy); color: var(--lime); display: grid; place-items: center; flex: none; }
+#ask-form button svg { width: 20px; height: 20px; }
+#ask-form button:disabled { opacity: .5; cursor: default; }
+
+@media (max-width: 900px) {
+  .room main { grid-template-columns: 1fr; }
+  .ask { position: static; max-height: none; order: -1; }
+  .thread { max-height: 46vh; }
+  .person { grid-template-columns: auto minmax(0, 1fr); }
+  .person .score { grid-column: 2; text-align: left; display: flex; align-items: baseline; gap: 6px; margin-top: 6px; }
+  .person .detail, .person .acts { grid-column: 1 / -1; }
+  .bar nav a:first-child { display: none; }
+}

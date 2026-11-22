@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>FirstRound</title>
+<link rel="stylesheet" href="/chat.css">
+</head>
+<body>
+<div class="stage">
+  <div class="topbar">
+    <a class="brand" href="/" style="color:inherit;text-decoration:none"><span class="logo" data-logo="lime"></span><div><b>First</b><span>Round</span></div></a>
+    <nav class="modes" aria-label="Ways to join">
+      <a href="/recruit" id="mode-recruit">Hiring team</a>
+      <a href="/chat?invite=northwind-sde2" id="mode-invite">Invited candidate</a>
+      <a href="/dashboard" id="mode-dash">Dashboard</a>
+    </nav>
+  </div>
+
+  <div class="phone-wrap">
+    <div class="phone">
+      <div class="island"></div>
+      <div class="screen">
+        <div class="status"><span id="clock">9:41</span><span class="sig"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i><span class="batt"><i></i></span></span></div>
+        <header class="chat-head">
+          <span class="back" aria-hidden="true">‹</span>
+          <span class="avatar" data-logo="navy"></span>
+          <div class="who">
+            <div class="n">FirstRound <svg viewBox="0 0 24 24" aria-label="Verified"><path fill="#c8f04a" d="m12 1.5 2.6 2.1 3.3-.2 1 3.2 2.8 1.8-1.2 3.1 1.2 3.1-2.8 1.8-1 3.2-3.3-.2L12 21.5l-2.6-2.1-3.3.2-1-3.2-2.8-1.8 1.2-3.1-1.2-3.1 2.8-1.8 1-3.2 3.3.2z"/><path d="m8 11.8 2.7 2.7L16 9.2" fill="none" stroke="#101828" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <div class="s" id="presence" aria-live="polite">online</div>
+          </div>
+          <div class="head-icons">
+            <button type="button" id="head-call" aria-label="Call FirstRound"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.900.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.900.3 1.800.6 2.800.7a2 2 0 0 1 1.7 2z"/></svg></button>
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>
+          </div>
+        </header>
+
+        <div class="msgs" id="msgs" role="log" aria-live="polite"></div>
+
+        <form class="composer" id="composer" autocomplete="off">
+          <div class="field" id="field">
+            <input id="text" type="text" placeholder="Message" aria-label="Message" enterkeyhint="send">
+            <button type="button" class="attach" id="attach" aria-label="Attach your CV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11.6-8.9 8.9a5.5 5.5 0 0 1-7.8-7.8l9-9a3.7 3.7 0 0 1 5.2 5.2l-9 9a1.8 1.8 0 0 1-2.6-2.6l8.3-8.3"/></svg></button>
+          </div>
+          <div class="recbar" id="recbar" hidden><span class="dot"></span><span class="t" id="rectime">0:00</span><span class="hint">Recording… tap send when done</span><button type="button" id="reccancel">Cancel</button></div>
+          <button type="submit" class="send" id="send" aria-label="Record a voice note"></button>
+          <input type="file" id="cvfile" accept="application/pdf,.pdf,.txt" hidden>
+        </form>
+
+        <div class="call ringing" id="call" hidden>
+          <div class="label" id="call-label">FIRSTROUND VOICE CALL</div>
+          <div class="name" id="call-name">FirstRound</div>
+          <div class="sub" id="call-sub">Incoming call…</div>
+          <div class="orbit"><div class="face" data-logo="navy"></div></div>
+          <div class="err" id="call-err" role="alert" hidden></div>
+          <div class="note" id="call-note">Your first-round conversation with our AI interviewer. The call is recorded and transcribed for the hiring team.</div>
+          <div class="btns" id="call-incoming">
+            <div><button type="button" class="cbtn end" id="call-decline" aria-label="Decline"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.2c1.100.4 2.300.6 3.600.6a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.300.2 2.500.6 3.6a1 1 0 0 1-.2 1z"/></svg></button>Decline</div>
+            <div><button type="button" class="cbtn acc" id="call-accept" aria-label="Accept"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.2c1.100.4 2.300.6 3.600.6a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.300.2 2.500.6 3.6a1 1 0 0 1-.2 1z"/></svg></button>Accept</div>
+          </div>
+          <div class="btns" id="call-active" hidden>
+            <div><button type="button" class="cbtn alt" id="call-mute" aria-label="Mute" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4"/></svg></button>Mute</div>
+            <div><button type="button" class="cbtn end" id="call-end" aria-label="End call"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.2c1.100.4 2.300.6 3.600.6a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.300.2 2.500.6 3.6a1 1 0 0 1-.2 1z"/></svg></button>End</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot"><button type="button" id="reset">Start over</button></div>
+</div>
+<script type="module" src="/assets/chat.js"></script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>First Round · Set up an interview</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <header class="site"><span class="brand">First Round</span><span class="brand-note">AI first-round interviewer</span></header>
+
+  <section id="form-view">
+    <h1>Set up an interview</h1>
+    <p class="lede">Give the interviewer the CV, the role and what you want tested. It plans the conversation, runs it by voice, and sends you a scored report with the candidate's own words as evidence.</p>
+    <div class="actions" style="margin-top:14px"><button type="button" class="secondary" id="load-demo">Load demo scenario</button><span class="hint">An SDE 1 candidate with one overstated claim on the CV.</span></div>
+
+    <form id="setup" novalidate>
+      <div class="row">
+        <div><label for="candidate_name">Candidate name</label><input type="text" id="candidate_name" autocomplete="off" required></div>
+        <div><label for="role_title">Role</label><input type="text" id="role_title" autocomplete="off" required></div>
+      </div>
+
+      <label for="cv_text">CV <span class="hint">Paste the text, or choose a PDF and it will be read here.</span></label>
+      <input type="file" id="cv_file" accept="application/pdf,.pdf,.txt" style="margin-bottom:8px">
+      <div id="cv-note" class="hint" hidden></div>
+      <textarea id="cv_text" required></textarea>
+
+      <label for="job_description">Job description</label>
+      <textarea id="job_description" required></textarea>
+
+      <label>Competencies to test <span class="hint">Up to 10. The definition is optional.</span></label>
+      <div id="comps"></div>
+      <button type="button" class="quiet" id="add-comp">Add competency</button>
+
+      <h2>Hard bars</h2>
+      <p class="hint">Checked in the first five minutes. The interviewer asks what the candidate expects and never says your budget.</p>
+      <div class="row">
+        <div><label for="hb_comp">Compensation budget</label><input type="text" id="hb_comp" placeholder="e.g. up to ₹18 lakh fixed"></div>
+        <div><label for="hb_loc">Location</label><input type="text" id="hb_loc" placeholder="e.g. Mumbai, in office"></div>
+      </div>
+      <label for="hb_other">Anything else <span class="hint">optional</span></label>
+      <input type="text" id="hb_other" placeholder="e.g. can join within 30 days">
+
+      <label for="voice_id">Interviewer voice</label>
+      <div class="linkbox"><select id="voice_id"></select><button type="button" class="quiet" id="voice-preview">Listen</button></div>
+
+      <label for="language">Interview language <span class="hint">The report is always written in English.</span></label>
+      <select id="language"></select>
+
+      <label for="minutes">Interview length</label>
+      <select id="minutes"><option value="30">30 minutes (full first round)</option><option value="10">10 minutes (demo)</option></select>
+
+      <div id="form-error" class="error" role="alert" hidden></div>
+      <div class="actions"><button type="submit" id="submit">Plan the interview</button></div>
+    </form>
+  </section>
+
+  <section id="result-view" hidden>
+    <h1 id="result-title">Preparing the interview</h1>
+    <p class="lede" id="result-lede"></p>
+    <div id="result-status" class="notice" role="status"></div>
+    <div id="result-error" class="error" role="alert" hidden></div>
+    <div id="links" hidden>
+      <div class="card">
+        <h3>Candidate link</h3>
+        <p class="hint">Send this to the candidate. It opens the voice interview in their browser.</p>
+        <div class="linkbox"><input type="text" id="candidate-link" readonly><button type="button" class="quiet" data-copy="candidate-link">Copy</button><a class="button secondary" id="candidate-open" target="_blank" rel="noopener">Open</a></div>
+      </div>
+      <div class="card">
+        <h3>Report link</h3>
+        <p class="hint">Yours. It shows the scored report once the interview is over.</p>
+        <div class="linkbox"><input type="text" id="report-link" readonly><button type="button" class="quiet" data-copy="report-link">Copy</button><a class="button secondary" id="report-open" target="_blank" rel="noopener">Open</a></div>
+      </div>
+    </div>
+    <div id="plan"></div>
+    <div class="actions"><button type="button" class="quiet" id="retry-plan" hidden>Try again</button><a class="button secondary" href="/setup">Set up another interview</a></div>
+  </section>
+</main>
+<script type="module" src="/assets/setup.js"></script>
+</body>
+</html>
