@@ -219,11 +219,11 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
       });
     }
 
-    if (parts[0] === "chat") return handleChat(request, parts, d, (input) => createInterview(d, validateInput(input)));
+    if (parts[0] === "chat") return await handleChat(request, parts, d, (input) => createInterview(d, validateInput(input)));
 
-    if (parts[0] === "recruit") return handleRecruit(request, parts, d, (iv) => advance(d, iv));
+    if (parts[0] === "recruit") return await handleRecruit(request, parts, d, (iv) => advance(d, iv));
 
-    if (parts[0] === "jd") return handleJd(request, parts, d);
+    if (parts[0] === "jd") return await handleJd(request, parts, d);
 
     if (parts[0] === "roles" && method === "GET") {
       if (!parts[1]) return json({ roles: ROLES.map(publicRole) });

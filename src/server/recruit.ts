@@ -529,6 +529,13 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps, 
     const question = str(body.text).slice(0, 2000);
     if (!question) return json({ error: "Ask a question first." }, 400);
     const entries = await roomEntries(d, chat, advance);
+    // Nothing to answer from yet: say so here rather than have the agent guess.
+    if (!entries.some((e) => e.brief)) {
+      const answer = entries.length
+        ? "No one has finished their first round for this role yet. As soon as an interview is written up, ask me again."
+        : "No one has interviewed for this role yet. Share the job description so candidates can do their first round, or ask FirstRound in the chat to show candidates from the network.";
+      return json({ answer, candidates: entries.map((e) => e.card) });
+    }
     const context = roomContext(chat, entries);
     // The same people with the same notes: no need to send them again.
     const told = entries.map((e) => `${e.card.id}:${e.brief.length}`).join(",");
