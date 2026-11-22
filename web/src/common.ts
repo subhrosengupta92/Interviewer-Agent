@@ -103,10 +103,13 @@ export function fitPhone() {
       return;
     }
     const full = 840; // the phone's designed height in CSS pixels
-    const chrome = (document.querySelector<HTMLElement>(".topbar")?.offsetHeight ?? 70) + (document.querySelector<HTMLElement>(".foot")?.offsetHeight ?? 40) + 12;
-    const scale = Math.max(0.55, Math.min(1, (window.innerHeight - chrome) / full));
+    // The logo and controls float in the corners, so only a small margin is kept above and below.
+    const scale = Math.max(0.5, Math.min(1, (window.innerHeight - 28) / full));
+    phone.style.transformOrigin = "center center";
     phone.style.transform = `scale(${scale})`;
-    wrap.style.height = `${Math.round(full * scale)}px`;
+    // The scaled phone still occupies its full layout box; pull the box in so the page does not scroll.
+    phone.style.margin = `${Math.round((full * (scale - 1)) / 2)}px 0`;
+    wrap.style.height = "";
   };
   apply();
   window.addEventListener("resize", apply);

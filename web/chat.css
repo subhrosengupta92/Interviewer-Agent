@@ -274,3 +274,12 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .phone { width: 402px; height: 840px; min-height: 0; transform-origin: top center; flex: none; }
 .phone-wrap { display: flex; justify-content: center; align-items: flex-start; padding: 0; }
 @media (max-width: 480px) { .phone { width: 100vw; height: 100dvh; } .phone-wrap { height: auto; } }
+
+/* The logo, mode switch and reset float in the corners, so the phone can use the full window height. */
+@media (min-width: 481px) {
+  .stage { display: block; position: relative; min-height: 100vh; }
+  .topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 5; pointer-events: none; }
+  .topbar > * { pointer-events: auto; }
+  .foot { position: fixed; right: 24px; bottom: 14px; padding: 0; z-index: 5; }
+  .phone-wrap { min-height: 100vh; align-items: center; }
+}
