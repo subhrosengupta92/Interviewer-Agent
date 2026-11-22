@@ -60,37 +60,35 @@
 .mock.lead .card:nth-child(2) { animation-delay: 1.25s; }
 .mock.lead .card:nth-child(3) { animation-delay: 1.45s; }
 
-/* the story */
-.story { background: var(--navy); color: #fff; padding: clamp(56px, 10vh, 120px) 0; }
-.story h2 { font-size: 17px; font-weight: 600; letter-spacing: 0; color: var(--lime); margin-bottom: clamp(20px, 3vh, 34px); }
-.telling { max-width: 25ch; font-family: var(--display); font-size: clamp(26px, 3.3vw, 44px); line-height: 1.16; letter-spacing: -0.025em; font-weight: 600; }
-.telling p + p { margin-top: .75em; }
-.telling p { color: #aab3c5; }
-.telling em { font-style: normal; color: #fff; }
-.telling .turn { color: var(--lime); }
-@media (min-width: 900px) { .telling { max-width: 31ch; } }
+/* everything below the hero speaks in quotes, set in a serif */
+.home { --quote: "Instrument Serif", "Iowan Old Style", Georgia, serif; }
+.story { background: var(--navy); color: #fff; padding: clamp(56px, 9vh, 104px) 0; }
+.story blockquote { margin: 0; font-family: var(--quote); font-size: clamp(32px, 4.4vw, 60px); line-height: 1.08; letter-spacing: -0.01em; max-width: 31ch; text-wrap: balance; }
+.story blockquote p + p { margin-top: .55em; }
+.story .answer { font-family: var(--quote); font-style: italic; font-size: clamp(40px, 5.6vw, 76px); line-height: 1; color: var(--lime); margin: .7em 0 .55em; }
+.go.lime { background: var(--lime); color: var(--navy); box-shadow: none; }
 
 /* the three screens */
-.steps { padding: clamp(56px, 10vh, 110px) 0 clamp(40px, 7vh, 80px); background: #f6f7fa; }
-.steps h2 { font-size: clamp(28px, 3.4vw, 44px); line-height: 1.08; letter-spacing: -0.03em; font-weight: 800; max-width: 18ch; }
-.steps ol { list-style: none; counter-reset: step; margin: clamp(32px, 6vh, 60px) 0 clamp(36px, 6vh, 64px); padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(20px, 4vw, 56px); }
-.steps li { counter-increment: step; display: grid; justify-items: center; align-content: start; }
-.steps h3 { font-size: 22px; letter-spacing: -0.02em; font-weight: 700; margin-top: 26px; justify-self: start; }
-.steps h3::before { content: counter(step) ". "; color: var(--lime-deep); }
-.steps li p { font-size: 16px; color: #3a4353; margin-top: 6px; max-width: 34ch; justify-self: start; }
+.steps { padding: clamp(52px, 9vh, 100px) 0 clamp(40px, 7vh, 72px); background: #f6f7fa; }
+.home .steps h2 { font-family: var(--quote); font-weight: 400; font-size: clamp(32px, 4vw, 54px); line-height: 1.06; letter-spacing: -0.01em; max-width: 20ch; }
+.steps ol { list-style: none; margin: clamp(30px, 5vh, 52px) 0 clamp(36px, 6vh, 60px); padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(20px, 4vw, 56px); }
+.steps li { display: grid; justify-items: center; align-content: start; text-align: center; }
+.home .steps h3 { font-family: var(--quote); font-weight: 400; font-size: clamp(24px, 2.2vw, 30px); line-height: 1.12; margin-top: 24px; max-width: 16ch; }
+.steps .mock .screen { cursor: pointer; }
+.steps .mock { text-align: left; }
+.try { margin-top: 12px; display: inline-block; color: var(--navy); font-weight: 700; font-size: 15.5px; text-decoration: none; padding: 9px 16px; border-radius: 999px; border: 1.5px solid var(--navy); }
+.try:hover { background: var(--navy); color: #fff; }
 
 /* foot */
-.footer { max-width: 1180px; margin: 0 auto; padding: clamp(28px, 5vh, 48px) var(--gutter) 40px; display: grid; gap: 10px; }
-.footer .candidates { font-size: 17px; }
-.footer a { color: inherit; font-weight: 600; text-decoration-color: var(--lime-deep); text-decoration-thickness: 2px; text-underline-offset: 3px; }
-.footer .small { font-size: 13.5px; color: var(--ink-2); }
+.footer { max-width: 1180px; margin: 0 auto; padding: clamp(26px, 5vh, 44px) var(--gutter) 40px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 24px; }
+.footer .candidates { font-family: var(--quote); font-size: clamp(22px, 2.2vw, 28px); line-height: 1.15; }
+.footer .candidates a { font-family: var(--sans); font-size: 15.5px; font-weight: 700; color: inherit; margin-left: 8px; text-decoration-color: var(--lime-deep); text-decoration-thickness: 2px; text-underline-offset: 3px; white-space: nowrap; }
 
 @media (max-width: 860px) {
   .hero { grid-template-columns: 1fr; }
   .hero h1 { max-width: 15ch; }
   .mock.lead { --zoom: .7; }
   .steps ol { grid-template-columns: 1fr; gap: 48px; }
-  .steps li { justify-items: start; }
   .steps .mock { justify-self: center; --zoom: .68; }
 }
 
