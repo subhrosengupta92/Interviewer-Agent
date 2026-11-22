@@ -1,6 +1,6 @@
 import { type Eleven, MissingKeyError } from "../lib/eleven";
 import { extractJson } from "../lib/json";
-import { interviewerBrief, plannerMessage, scorerMessage } from "../lib/prompts";
+import { emptyPlan, interviewerBrief, plannerMessage, quickBrief, scorerMessage } from "../lib/prompts";
 import { enforceEvidence } from "../lib/quotes";
 import { finaliseScore } from "../lib/scoring";
 import type { Store } from "../lib/store";
@@ -36,6 +36,7 @@ const fail = (status: number, error: string) => json({ error }, status);
 
 async function startPlanning(d: Deps, iv: Interview) {
   iv.job_conversation_id = await d.eleven.startText(d.agents.planner, plannerMessage(iv.input));
+  iv.plan_job_id = iv.job_conversation_id;
   iv.job_started_at = d.now();
   iv.job_attempts += 1;
   iv.status = "planning";
@@ -53,7 +54,26 @@ function beginScoring(iv: Interview) {
   iv.error = null;
 }
 
+/**
+ * Collects the written plan if the Planner has finished. Used when a call started before the plan was ready,
+ * so the interview is no longer in the "planning" state. Returns true if the plan was stored.
+ */
+async function collectPlan(d: Deps, iv: Interview): Promise<boolean> {
+  if (iv.plan || !iv.plan_job_id) return false;
+  try {
+    const snap = await d.eleven.getConversation(iv.plan_job_id);
+    const reply = snap.turns.filter((t) => t.role === "agent").at(-1);
+    if (!reply) return false;
+    iv.plan = validatePlan(extractJson(reply.text), iv.input);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function startScorer(d: Deps, iv: Interview) {
+  // If the written plan never arrived, score against the role alone.
+  if (!iv.plan && !(await collectPlan(d, iv))) iv.plan = emptyPlan(iv.input);
   iv.job_conversation_id = await d.eleven.startText(d.agents.scorer, scorerMessage(iv.input, iv.plan!, iv.turns!));
   iv.job_started_at = d.now();
   iv.job_attempts += 1;
@@ -104,9 +124,10 @@ export async function advance(d: Deps, iv: Interview): Promise<boolean> {
     return true;
   }
   if (iv.status === "in_progress") {
-    if (!iv.conversation_ids.length || d.now() - (iv.started_at ?? 0) < ORPHAN_CHECK_MS) return false;
+    const gotPlan = await collectPlan(d, iv);
+    if (!iv.conversation_ids.length || d.now() - (iv.started_at ?? 0) < ORPHAN_CHECK_MS) return gotPlan;
     const latest = await d.eleven.getConversation(iv.conversation_ids.at(-1)!).catch(() => null);
-    if (!latest || latest.status !== "done") return false;
+    if (!latest || latest.status !== "done") return gotPlan;
     beginScoring(iv);
     // fall through to collect the transcript in the same request
   }
@@ -164,6 +185,9 @@ export async function createInterview(d: Deps, input: InterviewInput): Promise<I
   return iv;
 }
 
+/** A call can start once the plan exists, or straight away for interviews marked instant. */
+const canCall = (iv: Interview) => !!iv.plan || iv.input.instant === true;
+
 const firstName = (iv: Interview) => iv.input.candidate_name.split(/\s+/)[0];
 
 export async function handleApi(request: Request, d: Deps): Promise<Response> {
@@ -174,8 +198,12 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
     if (parts[0] === "tool") {
       if (request.headers.get("x-tool-secret") !== d.toolSecret || !d.toolSecret) return fail(401, "Unauthorised");
       const iv = await d.store.get(url.searchParams.get("interview_id") ?? "");
-      if (!iv || !iv.plan) return fail(404, "Interview not found");
-      if (parts[1] === "brief" && method === "GET") return json({ brief: interviewerBrief(iv.input, iv.plan) });
+      if (!iv) return fail(404, "Interview not found");
+      if (parts[1] === "brief" && method === "GET") {
+        // The call may have started before the written plan was ready: use it if it has arrived, otherwise a quick brief.
+        if (!iv.plan && (await collectPlan(d, iv))) await d.store.put(iv);
+        return json({ brief: iv.plan ? interviewerBrief(iv.input, iv.plan) : quickBrief(iv.input) });
+      }
       return fail(404, "Not found");
     }
 
@@ -244,6 +272,7 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
         interviewer_name: voice.name,
         voice_id: voice.id,
         language: languageByCode(iv.input.language).code,
+        can_call: canCall(iv),
       });
     }
 
@@ -261,7 +290,7 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
     if (action === "session" && method === "POST") {
       // A candidate can call again at any point once the plan exists, e.g. after a dropped call.
       // The most recent long-enough call is the one that gets scored.
-      if (!iv.plan) return fail(409, iv.status === "planning" ? "This interview is still being prepared." : "This interview could not be set up.");
+      if (!canCall(iv)) return fail(409, iv.status === "planning" ? "This interview is still being prepared." : "This interview could not be set up.");
       // WebRTC by default; the browser asks for a WebSocket session if WebRTC cannot connect on its network.
       const body = (await request.json().catch(() => ({}))) as { transport?: string; voice_id?: string; language?: string };
       const language = LANGUAGES.find((l) => l.code === body.language) ?? languageByCode(iv.input.language);

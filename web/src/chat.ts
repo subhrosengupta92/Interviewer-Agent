@@ -285,13 +285,12 @@ let callOver = true;
 let muted = false;
 
 async function prepareCall(a: CallInfo, prep: HTMLElement) {
-  // The interview plan is being written for this candidate; ring as soon as it is ready.
+  // Ring as soon as the server says the call can start (straight away for chat interviews).
   for (let i = 0; i < 90; i++) {
     try {
       const c = await api(`/interviews/${a.interview_id}/candidate`);
       // The manager view advances the plan; nudging it here keeps the chat self-sufficient.
-      if (c.status === "planning") await api(`/interviews/${a.interview_id}/feedback`).catch(() => {});
-      if (["ready", "in_progress", "too_short"].includes(c.status)) {
+      if (c.can_call) {
         callMinutes = c.minutes;
         prep.innerHTML = `<span>📞 Calling you now…</span>`;
         ring(a, c.interviewer_name);
@@ -336,7 +335,7 @@ async function callBack() {
     const state = chatId ? await api(`/chat/${chatId}`).catch(() => null) : null;
     const c = state?.interview_id ? await api(`/interviews/${state.interview_id}/candidate`).catch(() => null) : null;
     if (!c) return void chip("Share your CV first and I'll set up your call.");
-    if (c.status === "planning") return void chip("Your interviewer is still being set up. You'll get a call here in a moment.");
+    if (!c.can_call) return void chip("Your interviewer is still being set up. You'll get a call here in a moment.");
     callMinutes = c.minutes;
     callInfo = { interview_id: state.interview_id, role_title: c.role_title, company: "FirstRound" };
     $("#call-name").textContent = c.interviewer_name;

@@ -103,3 +103,44 @@ export function scorerMessage(input: InterviewInput, plan: Plan, turns: Turn[]):
     "Produce the assessment report as JSON. Use each competency name exactly as written inside the quotes.",
   ].join("\n\n");
 }
+
+/**
+ * What the Interviewer works from when the call starts before the written plan is ready:
+ * the role, what to test and the CV, with the planning left to the Interviewer.
+ */
+export function quickBrief(input: InterviewInput): string {
+  const firstName = input.candidate_name.split(/\s+/)[0];
+  const bars = [
+    "Salary: ask what they are hoping for. You do not know the budget and never state a figure.",
+    input.hard_bars.location ? `Location: the role is ${input.hard_bars.location}. Ask whether that works.` : null,
+    input.hard_bars.other ? `Also check: ${input.hard_bars.other}` : null,
+  ].filter(Boolean);
+  return [
+    `INTERVIEW BRIEF`,
+    `Candidate: ${input.candidate_name} (call them ${firstName}). Role: ${input.role_title}. Length: ${input.minutes} minutes.`,
+    `There is no prepared question list for this conversation. Read the CV below and plan as you go:`,
+    `- Pick the three biggest things this person says they did (large numbers, sole ownership, senior scope) and dig into each until you reach what they personally did, how it worked and how the numbers were measured.`,
+    `- For each area below, ask questions anchored to named items on their CV, starting comfortable and getting harder as they answer well.`,
+    `Practical points to ask in the first few minutes:\n${bars.map((b) => `- ${b}`).join("\n")}`,
+    `What to find out about (never name these to the candidate):\n${input.competencies
+      .map((c) => `- ${c.name}${c.definition ? `: ${c.definition}` : ""}`)
+      .join("\n")}`,
+    `Reading answers fairly: using AI tools, libraries or help from others is normal; what matters is whether they understand what they did and can explain it. Team work is normal; what matters is that they are precise about their own part.`,
+    `Then: why this role, why now, where they want to be in five years. Then their questions, then close.`,
+    `<job_description>\n${input.job_description}\n</job_description>`,
+    `<cv>\n${input.cv_text}\n</cv>`,
+  ].join("\n\n");
+}
+
+/** A plan with no prepared questions, used for scoring when the written plan never arrived. */
+export function emptyPlan(input: InterviewInput): Plan {
+  return {
+    opening: "",
+    background_questions: [],
+    hard_bar_checks: [],
+    competencies: input.competencies.map((c) => ({ name: c.name, questions: [], cv_anchor: "" })),
+    claims_to_probe: [],
+    motivation_questions: [],
+    time_budget_minutes: {},
+  };
+}

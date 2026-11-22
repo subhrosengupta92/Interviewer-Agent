@@ -100,6 +100,8 @@ function interviewInput(chat: Chat, role: Role): InterviewInput {
     competencies: role.competencies,
     hard_bars: { compensation_budget: role.budget, location: role.location },
     minutes: 10,
+    // Ring straight away; the written plan is picked up in the background when it is ready.
+    instant: true,
   };
 }
 

@@ -399,6 +399,44 @@ describe("recruiter chat", () => {
   });
 });
 
+describe("instant interviews (the chat flow)", () => {
+  const h = { "x-tool-secret": "s3cret" };
+  it("can be called before the plan is written, with a quick brief that has no budget", async () => {
+    const { body } = await call("POST", "/interviews", { ...input, instant: true });
+    expect((await call("GET", `/interviews/${body.id}/candidate`)).body).toMatchObject({ status: "planning", can_call: true });
+    const brief = (await call("GET", `/tool/brief?interview_id=${body.id}`, undefined, h)).body.brief;
+    expect(brief).toContain("There is no prepared question list");
+    expect(brief).toContain("Built the payments retry service at Finlo");
+    expect(brief).not.toContain("18 LPA");
+    expect((await call("POST", `/interviews/${body.id}/session`)).status).toBe(200);
+  });
+  it("picks up the written plan once it arrives, even after the call has started", async () => {
+    const { body } = await call("POST", "/interviews", { ...input, instant: true });
+    const job = eleven.lastJob().id;
+    await call("POST", `/interviews/${body.id}/session`);
+    eleven.reply(job, JSON.stringify(plan));
+    const brief = (await call("GET", `/tool/brief?interview_id=${body.id}`, undefined, h)).body.brief;
+    expect(brief).toContain("CV claims to probe");
+    expect((await d.store.get(body.id))!.plan!.competencies).toHaveLength(2);
+  });
+  it("still scores a call when the plan never arrived", async () => {
+    const { body } = await call("POST", "/interviews", { ...input, instant: true });
+    await call("POST", `/interviews/${body.id}/session`);
+    const conv = (await d.store.get(body.id))!.conversation_ids[0];
+    eleven.convs.set(conv, { status: "done", turns, duration_secs: 300 });
+    await call("POST", `/interviews/${body.id}/complete`);
+    expect((await call("GET", `/interviews/${body.id}/feedback`)).body.status).toBe("scoring");
+    expect(eleven.lastJob().agent).toBe("S");
+    eleven.reply(eleven.lastJob().id, JSON.stringify(report));
+    expect((await call("GET", `/interviews/${body.id}`)).body.status).toBe("done");
+  });
+  it("leaves manager-created interviews waiting for their plan", async () => {
+    const { body } = await call("POST", "/interviews", input);
+    expect((await call("GET", `/interviews/${body.id}/candidate`)).body.can_call).toBe(false);
+    expect((await call("POST", `/interviews/${body.id}/session`)).status).toBe(409);
+  });
+});
+
 describe("tool routes", () => {
   it("reject a wrong or missing secret", async () => {
     const id = await toReady();

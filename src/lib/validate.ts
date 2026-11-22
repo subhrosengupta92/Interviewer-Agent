@@ -61,6 +61,7 @@ export function validateInput(raw: unknown): InterviewInput {
     minutes: minutes as 10 | 30,
     ...(voice ? { voice_id: voice.id } : {}),
     ...(language && language.code !== "en" ? { language: language.code } : {}),
+    ...(r.instant === true ? { instant: true } : {}),
   };
 }
 

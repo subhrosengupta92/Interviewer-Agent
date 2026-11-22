@@ -23,6 +23,8 @@ export interface InterviewInput {
   minutes: 10 | 30;
   /** Which voice the interviewer uses; absent on older interviews. */
   voice_id?: string;
+  /** Let the candidate start the call before the written plan is ready (the chat flow). */
+  instant?: boolean;
   /** Language the interview is held in; English when absent. */
   language?: "en" | "hi";
 }
@@ -131,6 +133,8 @@ export interface Interview {
   turns: Turn[] | null;
   /** ElevenLabs conversation running the Planner or Scorer in the background. */
   job_conversation_id: string | null;
+  /** The Planner's conversation, kept separately so a plan can be collected after a call has started. */
+  plan_job_id?: string | null;
   job_started_at: number | null;
   job_attempts: number;
   /** When the candidate last started a voice session (ms). */
