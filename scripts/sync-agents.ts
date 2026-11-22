@@ -179,7 +179,7 @@ const recruiterConfig = textAgent(RECRUITER_PROMPT, RECRUITER_MODEL);
 recruiterConfig.conversation_config.agent.prompt.temperature = 0.4;
 recruiterConfig.conversation_config.agent.prompt.max_tokens = 2000;
 (recruiterConfig.conversation_config.agent as Record<string, unknown>).dynamic_variables = {
-  dynamic_variable_placeholders: { recruiter: "a hiring manager" },
+  dynamic_variable_placeholders: { recruiter: "a hiring manager", live_pool: "(none yet)" },
 };
 const recruiter = await upsertAgent(`${PREFIX}recruiter`, recruiterConfig);
 const fitConfig = textAgent(FIT_PROMPT, FIT_MODEL);

@@ -31,4 +31,12 @@ export class D1Store implements Store {
       .bind(id, Date.now(), JSON.stringify(doc))
       .run();
   }
+
+  async recentInterviews(limit: number): Promise<Interview[]> {
+    const { results } = await this.db
+      .prepare("SELECT data FROM interviews WHERE id NOT LIKE 'chat_%' AND id NOT LIKE 'recruit_%' ORDER BY created_at DESC LIMIT ?")
+      .bind(limit)
+      .all<{ data: string }>();
+    return results.map((r) => JSON.parse(r.data) as Interview);
+  }
 }

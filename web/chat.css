@@ -237,3 +237,35 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .notes h3 { font-size: 16px; margin: 20px 0 6px; letter-spacing: -0.005em; }
 .notes ul { padding-left: 18px; margin: 0 0 6px; }
 .notes li { font-size: 15.5px; line-height: 1.5; margin-bottom: 4px; color: #2a3140; }
+
+/* iPhone-style frame: titanium band, thin even bezel, Dynamic Island, side buttons */
+.phone {
+  width: 402px; height: min(840px, calc(100vh - 118px)); min-height: 580px;
+  border-radius: 62px; padding: 4px;
+  background: linear-gradient(145deg, #8e8f93 0%, #55565a 18%, #2b2c2f 50%, #6c6d71 82%, #9a9b9f 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, .28),
+    inset 0 0 0 2.5px rgba(0, 0, 0, .55),
+    0 42px 80px -28px rgba(16, 24, 40, .45),
+    0 18px 30px -16px rgba(16, 24, 40, .3);
+}
+.phone::before, .phone::after { content: ""; position: absolute; width: 4px; border-radius: 3px; background: linear-gradient(90deg, #4b4c50, #8a8b8f 55%, #5a5b5f); }
+/* left: action button and volume keys; right: side button */
+.phone::before { left: -3px; top: 132px; height: 30px; box-shadow: 0 62px 0 0 #6c6d71, 0 62px 0 0 #6c6d71, 0 124px 0 0 #6c6d71; }
+.phone::after { right: -3px; top: 212px; height: 92px; }
+.screen { border-radius: 58px; border: 9px solid #050608; background-clip: padding-box; }
+.island { top: 22px; width: 118px; height: 34px; border-radius: 20px; background: #050608; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .04); }
+.island::after { content: ""; position: absolute; right: 12px; top: 11px; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #2a3350, #0a0d16 60%); }
+.status { height: 54px; padding: 0 30px 8px; font-size: 15px; letter-spacing: -0.01em; }
+.status .sig i { width: 3.2px; border-radius: 1.2px; }
+.status .batt { width: 25px; height: 12px; border-radius: 4px; border-width: 1.2px; opacity: .9; }
+.composer { padding-bottom: 22px; position: relative; }
+/* home indicator */
+.screen > .composer::after { content: ""; position: absolute; left: 50%; bottom: 7px; transform: translateX(-50%); width: 128px; height: 5px; border-radius: 3px; background: rgba(16, 24, 40, .85); }
+.group { inset: 54px 0 0 0; }
+.call { padding-top: 96px; }
+@media (max-width: 480px) {
+  .phone { width: 100vw; height: 100dvh; border-radius: 0; padding: 0; background: none; box-shadow: none; }
+  .phone::before, .phone::after, .island { display: none; }
+  .screen { border-radius: 0; border: 0; } .status { height: 12px; }
+}

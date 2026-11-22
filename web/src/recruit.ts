@@ -111,7 +111,7 @@ function renderBot(m: Msg, live: boolean) {
           (c) => `<div class="card cand"><div class="top"><span class="pic">${esc(initials(c.name))}</span><div><div class="ti" style="margin:0">${esc(c.name)}</div><div class="su">${esc(c.headline)}</div></div>
             <div class="score">${c.score.toFixed(1)}<small>first round</small></div></div>
           <div class="why">${esc(c.top)}</div>
-          <div class="tags"><span>${esc(c.location)}</span><span>Notice ${esc(c.notice)}</span></div>
+          <div class="tags">${c.id.startsWith("live-") ? "<span>Interviewed today</span>" : ""}${c.location ? `<span>${esc(c.location)}</span>` : ""}${c.notice ? `<span>Notice ${esc(c.notice)}</span>` : ""}</div>
           <div class="two"><a class="light" href="/fit?chat=${encodeURIComponent(chatId)}&c=${encodeURIComponent(c.id)}" target="_blank" rel="noopener">Why they fit</a>
           <button type="button" data-connect="${esc(c.name)}">Connect</button></div></div>`,
         )

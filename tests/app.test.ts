@@ -437,6 +437,42 @@ describe("instant interviews (the chat flow)", () => {
   });
 });
 
+describe("real interviews in the recruiter's pool", () => {
+  it("adds a finished network-role interview as a candidate, with its real notes and a report link", async () => {
+    const { body } = await call("POST", "/interviews", { ...input, role_title: "Principal, Venture Investments", candidate_name: "Subhro Sengupta" });
+    eleven.reply(eleven.lastJob().id, JSON.stringify(plan));
+    await call("GET", `/interviews/${body.id}`);
+    await toScoring(body.id);
+    eleven.reply(eleven.lastJob().id, JSON.stringify({ ...report, hard_bars: [], notes: [{ section: "Background", points: ["Ten years in venture"] }] }));
+    expect((await call("GET", `/interviews/${body.id}`)).body.status).toBe("done");
+    // A setup-page demo run (not a network role) must not appear.
+    await toReady();
+
+    const { body: chat } = await call("POST", "/recruit", { recruiter: "Ananya" });
+    const live = (await d.store.getDoc<any>(chat.id)).live;
+    expect(live.map((c: any) => c.name)).toEqual(["Subhro Sengupta"]);
+    expect(live[0]).toMatchObject({ id: `live-${body.id}`, score: 8, interviewed_for: "Principal, Venture Investments" });
+    eleven.nextReply = JSON.stringify({ say: "Here", action: { type: "candidates", picks: [{ id: `live-${body.id}`, why: "Interviewed today" }, { id: "c-kabir", why: "Growth investor" }] } });
+    const c = await call("POST", `/recruit/${chat.id}/message`, { text: "go" });
+    expect(c.body.reply.action.candidates.map((x: any) => x.name)).toEqual(["Subhro Sengupta", "Kabir Anand"]);
+    eleven.nextReply = JSON.stringify({ pointers: ["Ten years investing"] });
+    const fit = await call("GET", `/recruit/${chat.id}/fit/live-${body.id}`);
+    expect(fit.body).toMatchObject({ real: true, report_url: `/report?id=${body.id}`, notes: [{ section: "Background", points: ["Ten years in venture"] }] });
+  });
+  it("tells the agent when someone finishes an interview mid-conversation", async () => {
+    const { body: chat } = await call("POST", "/recruit", { recruiter: "Ananya" });
+    const { body } = await call("POST", "/interviews", { ...input, role_title: "Vice President, Growth Equity", candidate_name: "New Person" });
+    eleven.reply(eleven.lastJob().id, JSON.stringify(plan));
+    await call("GET", `/interviews/${body.id}`);
+    await toScoring(body.id);
+    eleven.reply(eleven.lastJob().id, JSON.stringify(report));
+    await call("GET", `/interviews/${body.id}`);
+    eleven.nextReply = '{"say":"ok","action":null}';
+    await call("POST", `/recruit/${chat.id}/message`, { text: "anyone new?" });
+    expect(eleven.chats.at(-1)!.said.at(-1)).toMatch(/\[new candidates just finished[\s\S]*New Person[\s\S]*anyone new\?/);
+  });
+});
+
 describe("tool routes", () => {
   it("reject a wrong or missing secret", async () => {
     const id = await toReady();

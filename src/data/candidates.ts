@@ -88,6 +88,48 @@ export const CANDIDATES: PoolCandidate[] = [
     strengths: ["Ran ₹2 crore a month and explained the difference between attributed and incremental results", "Strong creative judgement"],
     watch: ["Has not managed a team"],
   },
+  {
+    id: "c-rhea", name: "Rhea Kapoor", headline: "Vice President, Corporate Development at a listed consumer company", years: 11, location: "Mumbai", notice: "60 days", expects: "₹1.1 Cr",
+    skills: ["M&A", "valuation", "deal structuring", "integration", "investor relations"], score: 8.7, interviewed_for: "Head of Corporate Development and Strategy",
+    strengths: ["Closed four acquisitions end to end, including a ₹320 crore brand buyout, and explained the earn-out she negotiated", "Walked through a deal she killed in diligence and the customer-concentration issue behind it", "Built the valuation herself and defended every assumption under follow-up", "Ran integration for two acquired brands; candid about what went wrong in the first"],
+    watch: ["Sixty-day notice", "Has not led a fundraise; supported the CFO on one"],
+  },
+  {
+    id: "c-kabir", name: "Kabir Anand", headline: "Principal at a growth-stage venture fund", years: 10, location: "Mumbai", notice: "30 days", expects: "₹1.2 Cr",
+    skills: ["growth investing", "diligence", "board work", "unit economics", "SaaS"], score: 8.5, interviewed_for: "Principal, Venture Investments",
+    strengths: ["Led six growth investments; clear on which two he would not do again and why", "Explained cohort and payback analysis on a SaaS deal from memory, including where the model was fragile", "Sits on three boards; described helping a founder through a down round", "Precise about his own role versus the partner's on each deal"],
+    watch: ["All experience is on the investing side; has not sat inside a company", "Expectation at the top of the range"],
+  },
+  {
+    id: "c-zoya", name: "Zoya Merchant", headline: "Director, Investment Banking (Technology M&A)", years: 9, location: "Mumbai", notice: "90 days", expects: "₹1.3 Cr",
+    skills: ["sell-side M&A", "private placements", "valuation", "negotiation"], score: 8.0, interviewed_for: "Head of Corporate Development and Strategy",
+    strengths: ["Advised on eleven closed technology transactions worth $1.4 billion in total", "Very strong on structuring: explained a ratchet and a locked-box mechanism clearly", "Handled every harder valuation question without notes"],
+    watch: ["Ninety-day notice", "Adviser only: has never owned a deal after closing", "Expectation above range"],
+  },
+  {
+    id: "c-dev", name: "Dev Malhotra", headline: "Head of Strategy and Investor Relations at a consumer internet company", years: 12, location: "Bengaluru", notice: "45 days", expects: "₹1.15 Cr",
+    skills: ["fundraising", "investor relations", "strategy", "board reporting", "M&A"], score: 8.3, interviewed_for: "Head of Corporate Development and Strategy",
+    strengths: ["Ran two fundraises totalling $180 million, from deck to closing, and explained the term he would not accept", "Owns the three-year plan and the board pack; showed how one strategy call changed after a pricing test", "Led one acquisition and its integration; honest that retention of the acquired team was poor", "Twelve years across consulting and operating roles"],
+    watch: ["Only one acquisition closed", "Forty-five-day notice"],
+  },
+  {
+    id: "c-ayesha", name: "Ayesha Qureshi", headline: "Senior Associate at a private equity fund", years: 6, location: "Mumbai", notice: "30 days", expects: "₹75 LPA",
+    skills: ["private equity", "financial modelling", "commercial diligence", "portfolio monitoring"], score: 7.8, interviewed_for: "Vice President, Growth Equity",
+    strengths: ["Built the full model on three buyouts and explained the leverage and exit assumptions", "Ran commercial diligence on a consumer brand, including 40 customer calls she did herself", "Clear, structured thinker under pressure"],
+    watch: ["Six years: junior for a head-of role", "Has supported deals, not led them"],
+  },
+  {
+    id: "c-rohan-s", name: "Rohan Sethi", headline: "Finance Director (FP&A and Treasury) at a D2C group", years: 13, location: "Mumbai", notice: "60 days", expects: "₹95 LPA",
+    skills: ["FP&A", "treasury", "unit economics", "fundraising support", "audit"], score: 7.5, interviewed_for: "Head of Corporate Development and Strategy",
+    strengths: ["Owns the group P&L forecast and explained how contribution margin is built brand by brand", "Led finance diligence on two inbound investments", "Thirteen years in consumer finance"],
+    watch: ["Finance operator rather than a deal lead", "Has not sourced or negotiated a transaction", "Sixty-day notice"],
+  },
+  {
+    id: "c-tara", name: "Tara Venkatesh", headline: "Chief of Staff to the CEO at a fintech", years: 8, location: "Bengaluru", notice: "30 days", expects: "₹85 LPA",
+    skills: ["strategy", "special projects", "M&A support", "new ventures", "OKRs"], score: 8.1, interviewed_for: "Head of New Ventures and AI Products",
+    strengths: ["Launched a new lending line from idea to ₹40 crore disbursed and explained the unit economics", "Ran the workstream on one acquisition and a failed merger; clear on why the merger died", "Trusted by the founders; described changing the CEO's mind on pricing with data"],
+    watch: ["Generalist: no deep finance or valuation training", "Has not owned a deal as the lead"],
+  },
 ];
 
 export const candidateById = (id: unknown): PoolCandidate | undefined => CANDIDATES.find((c) => c.id === id);

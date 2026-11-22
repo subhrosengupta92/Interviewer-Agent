@@ -6,6 +6,8 @@ export interface Store {
   /** Other records (chats), kept in the same table under their own IDs. */
   getDoc<T>(id: string): Promise<T | null>;
   putDoc(id: string, doc: unknown): Promise<void>;
+  /** The most recent interviews (not chats), newest first. */
+  recentInterviews(limit: number): Promise<Interview[]>;
 }
 
 export class MemoryStore implements Store {
@@ -23,5 +25,12 @@ export class MemoryStore implements Store {
   }
   async putDoc(id: string, doc: unknown) {
     this.rows.set(id, JSON.stringify(doc));
+  }
+  async recentInterviews(limit: number) {
+    return [...this.rows.values()]
+      .map((r) => JSON.parse(r) as Interview)
+      .filter((r) => (r as { kind?: string }).kind === undefined && r.input)
+      .sort((a, b) => b.created_at - a.created_at)
+      .slice(0, limit);
   }
 }

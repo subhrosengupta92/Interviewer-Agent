@@ -35,6 +35,10 @@ export function remoteStore(): Store {
         [id, Date.now(), JSON.stringify(doc)],
       );
     },
+    async recentInterviews(limit) {
+      const rows = await d1("SELECT data FROM interviews WHERE id NOT LIKE 'chat_%' AND id NOT LIKE 'recruit_%' ORDER BY created_at DESC LIMIT ?", [limit]);
+      return rows.map((r) => JSON.parse(r.data) as Interview);
+    },
     async put(iv) {
       await d1(
         "INSERT INTO interviews (id, created_at, data) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
