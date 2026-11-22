@@ -22,12 +22,12 @@ A first round has to test the subject itself: the engineering, the deal work, th
 | Job description | `/jd?id=…` | Candidates (public link) | The role, a **Share** button, and **Do the first round**, which starts a voice interview for that exact role. |
 | Invited candidate | `/chat?jd=…` or `/chat?invite=…` | Candidate | A chat that leads to a ten-minute voice interview. The call button starts the interview straight away. |
 | Role screen | `/room?chat=…` | Hiring team | Everyone interviewed for one role, with scores, strengths and things to check, and an "Ask the notes" box. |
-| Dashboard | `/dashboard` | Hiring team | A desktop screen: pick several interviews, compare scores by area, read any transcript, and ask questions across the selection. Ships with two sample roles. |
+| Recruiter dashboard | `/dashboard` | Hiring team | A desktop screen: pick several interviews, compare scores by area, read any transcript, and ask questions across the selection. Ships with two sample roles. |
 | Report | `/report?id=…` | Hiring team | One interview in full: scores, quotes, claim checks and the transcript. |
 | Fit page | `/fit?chat=…&c=…` | Hiring team | Seven pointers on why a candidate fits, with their interview notes. |
 | Set-up form | `/setup` | Demo use | The original form for running a single interview from a pasted CV and job description. |
 
-The app's top-right switcher moves between **Hiring team**, **Invited candidate** and **Dashboard**.
+The app's top-right switcher moves between **Hiring team**, **Invited candidate** and **Recruiter dashboard**.
 
 ## The flow, end to end
 
