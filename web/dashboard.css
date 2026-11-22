@@ -43,6 +43,21 @@
 .talk { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 20px clamp(16px, 3vw, 40px) 18px; }
 .talk > * { width: 100%; max-width: 980px; margin-left: auto; margin-right: auto; }
 .talk h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }
+.head-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.head-acts { display: flex; gap: 6px; }
+.head-acts button { font: inherit; font-size: 13.5px; font-weight: 600; color: var(--navy); background: #fff; border: 1.5px solid var(--line); border-radius: 999px; padding: 6px 12px; }
+.head-acts button:hover { border-color: var(--navy); }
+
+/* the first thing in the conversation: what this screen is for */
+.intro { align-self: stretch; background: var(--p-lime); border: 1.5px solid var(--navy); border-radius: 16px; padding: 18px 20px; box-shadow: 4px 4px 0 var(--navy); margin: 0 4px 6px 0; }
+.intro h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.intro p { font-size: 15px; margin-top: 4px; max-width: 70ch; }
+.intro ol { margin: 12px 0 0; padding: 0; list-style: none; counter-reset: n; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; }
+.intro li { counter-increment: n; position: relative; padding-left: 34px; font-size: 14.5px; line-height: 1.35; }
+.intro li::before { content: counter(n); position: absolute; left: 0; top: 0; width: 24px; height: 24px; border-radius: 8px; background: var(--navy); color: var(--lime); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+.intro .note { font-size: 13.5px; color: #3a4353; margin-top: 12px; }
+.intro button { margin-top: 12px; font: inherit; font-size: 14.5px; font-weight: 700; background: var(--navy); color: #fff; border-radius: 10px; padding: 9px 18px; }
+@media (max-width: 900px) { .intro ol { grid-template-columns: 1fr; } }
 .talk #scope { font-size: 14px; color: var(--ink-2); margin-top: 1px; }
 .picked { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
 .picked span { font-size: 12.5px; font-weight: 600; background: var(--p-lilac); border-radius: 999px; padding: 3px 10px; }

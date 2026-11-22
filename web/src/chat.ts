@@ -480,6 +480,11 @@ async function start() {
     /* private window */
   }
   chip("Today");
+  // The first thing in the chat: what this part of the app is for.
+  chip(
+    "<b>This is the candidate's side.</b> Your first round is a ten-minute voice call with FirstRound's AI interviewer about your own work. It is recorded for the hiring team, and you get feedback afterwards.",
+    "invite",
+  );
   let restored: { messages: Msg[]; applied: string[] } | null = null;
   if (saved) restored = await api(`/chat/${saved}`).catch(() => null);
   if (restored) {

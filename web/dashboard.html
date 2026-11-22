@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Dashboard · FirstRound</title>
+<title>Recruiter dashboard · FirstRound</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400..800&display=swap">
@@ -17,7 +17,7 @@
   <nav class="modes" aria-label="Screens">
     <a href="/recruit" id="mode-recruit">Hiring team</a>
     <a href="/chat?invite=northwind-sde2" id="mode-invite">Invited candidate</a>
-    <a href="/dashboard" id="mode-dash" class="on">Dashboard</a>
+    <a href="/dashboard" id="mode-dash" class="on">Recruiter dashboard</a>
   </nav>
 </header>
 
@@ -30,11 +30,29 @@
 
     <section class="talk" aria-labelledby="talk-h">
       <header>
-        <h1 id="talk-h">Ask the transcripts</h1>
+        <div class="head-row">
+          <h1 id="talk-h">Recruiter dashboard</h1>
+          <div class="head-acts">
+            <button type="button" id="help">What this does</button>
+            <button type="button" id="clear">Clear conversation</button>
+          </div>
+        </div>
         <p id="scope">Select interviews on the left, then ask anything across them.</p>
         <div class="picked" id="picked"></div>
       </header>
       <div class="thread" id="thread" role="log" aria-live="polite">
+        <section class="intro" id="intro" aria-labelledby="intro-h" hidden>
+          <h2 id="intro-h">What this dashboard does</h2>
+          <p>Every candidate here has done a first-round voice interview. This is where you compare them and question what they said.</p>
+          <ol>
+            <li><b>Pick interviews.</b> Tick up to eight on the left, from one role or several.</li>
+            <li><b>Compare scores.</b> A table shows each person's first-round score by area.</li>
+            <li><b>Read a transcript.</b> Click a name to open the full interview on the right.</li>
+            <li><b>Ask anything.</b> Answers come from the transcripts, with the candidate's own words quoted.</li>
+          </ol>
+          <p class="note">Two sample roles are loaded so you can try it: SDE-II, Backend and Principal, Corporate Development. Interviews from your own job descriptions appear here as candidates finish them.</p>
+          <button type="button" id="intro-ok">Got it</button>
+        </section>
         <div class="matrix" id="matrix"></div>
       </div>
       <div class="ideas" id="ideas"></div>

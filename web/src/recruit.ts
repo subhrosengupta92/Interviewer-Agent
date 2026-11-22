@@ -366,9 +366,14 @@ async function finishCall() {
 
 // ---------- start-up
 
+/** The first thing in the chat: what this part of the app is for. */
+const ABOUT =
+  "<b>This is the hiring team's chat.</b> Tell FirstRound who you need, by message, voice note or the call button. It writes the job description, candidates do their first round from its link, and you see who to meet.";
+
 async function open(saved?: string) {
   $("#signin").hidden = true;
   chip("Today");
+  chip(ABOUT).classList.add("invite");
   const restored = saved ? await api<{ messages: Msg[] }>(`/recruit/${saved}`).catch(() => null) : null;
   if (restored && saved) {
     chatId = saved;
