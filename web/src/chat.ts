@@ -1,7 +1,7 @@
 // The candidate's phone: a chat with FirstRound, voice notes, CV upload and the interview call.
-import { Conversation } from "@elevenlabs/client";
 import { timeUpdate } from "../../src/lib/time";
 import { $, api, ApiError, clock, esc, paintLogos, readCvText } from "./common";
+import { type VoiceCall, connectVoice } from "./voice";
 
 type Action =
   | { type: "join" }
@@ -276,7 +276,7 @@ async function uploadCv(file: File) {
 // ---------- the interview call
 
 interface CallInfo { interview_id: string; role_title: string; company: string }
-let call: Awaited<ReturnType<typeof Conversation.startSession>> | null = null;
+let call: VoiceCall | null = null;
 let callInfo: CallInfo | null = null;
 let callStart = 0;
 let callTick = 0;
@@ -330,23 +330,39 @@ function ring(a: CallInfo, interviewer: string) {
   $("#call").hidden = false;
 }
 
-/** The candidate calls FirstRound, e.g. after a dropped call. Goes straight to connecting; no ringing. */
+/**
+ * The candidate calls FirstRound from the header button. Goes straight to the interview: if none has been set up yet,
+ * the server sets one up as though the earlier steps were done. No ringing.
+ */
+let dialling = false;
 async function callBack() {
-  if (call && !callOver) return; // already on a call
-  if (!callInfo) {
-    // After a refresh the page only knows the interview's ID; fetch the rest.
-    const state = chatId ? await api(`/chat/${chatId}`).catch(() => null) : null;
-    const c = state?.interview_id ? await api(`/interviews/${state.interview_id}/candidate`).catch(() => null) : null;
-    if (!c) return void chip("Share your CV first and I'll set up your call.");
-    if (!c.can_call) return void chip("Your interviewer is still being set up. You'll get a call here in a moment.");
-    callMinutes = c.minutes;
-    callInfo = { interview_id: state.interview_id, role_title: c.role_title, company: "FirstRound" };
-    $("#call-name").textContent = c.interviewer_name;
-  }
+  if ((call && !callOver) || dialling) return; // already on a call
+  dialling = true;
   $("#call-label").textContent = "CALLING FIRSTROUND";
   $("#call-sub").textContent = "Calling…";
   $("#call-err").hidden = true;
+  $("#call-incoming").hidden = true;
+  $("#call-active").hidden = true;
+  $("#call-note").hidden = true;
+  callMode("connecting");
   $("#call").hidden = false;
+  try {
+    if (!callInfo) {
+      $("#call-name").textContent = "FirstRound";
+      await ready;
+      const c = await api(`/chat/${chatId}/call`, "POST", {});
+      callMinutes = c.minutes;
+      callInfo = { interview_id: c.interview_id, role_title: c.role_title, company: c.company };
+      $("#call-name").textContent = c.interviewer_name;
+      $("#attach").classList.remove("pulse");
+    }
+  } catch (e) {
+    hideCall();
+    chip(`${esc((e as Error).message)} Tap the call button to try again.`);
+    return;
+  } finally {
+    dialling = false;
+  }
   await acceptCall();
 }
 
@@ -402,26 +418,7 @@ async function acceptCall() {
     onError: (message: string) => callError(`Connection problem: ${message}`),
   };
   try {
-    try {
-      const s = await api(`/interviews/${info.interview_id}/session`, "POST", { transport: "webrtc" });
-      call = await Conversation.startSession({
-        conversationToken: s.token,
-        connectionType: "webrtc",
-        dynamicVariables: s.variables,
-        overrides: { tts: { voiceId: s.voice_id }, agent: { language: s.language } },
-        ...callbacks,
-      });
-    } catch (first) {
-      if (first instanceof ApiError) throw first;
-      const s = await api(`/interviews/${info.interview_id}/session`, "POST", { transport: "websocket" });
-      call = await Conversation.startSession({
-        signedUrl: s.signed_url,
-        connectionType: "websocket",
-        dynamicVariables: s.variables,
-        overrides: { tts: { voiceId: s.voice_id }, agent: { language: s.language } },
-        ...callbacks,
-      });
-    }
+    call = await connectVoice((transport) => api(`/interviews/${info.interview_id}/session`, "POST", { transport }), callbacks);
   } catch (e) {
     callOver = true;
     $("#call-incoming").hidden = false;
@@ -512,13 +509,13 @@ async function start() {
 }
 
 async function showInvite(inv?: null | { invited_by: string; role: { title: string; company: string } }) {
-  if (!invite) return void chip("Say hi to get started. You can type or send a voice note.");
+  if (!invite) return void chip("Say hi to get started, or tap the call button to go straight to your interview.");
   if (inv === undefined) {
     // Restoring: rebuild the invite card from the public role list.
     chip("You were invited to interview through FirstRound.", "invite");
     return;
   }
-  if (inv) chip(`<b>${esc(inv.invited_by)}</b> invited you to interview for <b>${esc(inv.role.title)}</b>. Say hi to get started.`, "invite");
+  if (inv) chip(`<b>${esc(inv.invited_by)}</b> invited you to interview for <b>${esc(inv.role.title)}</b>. Say hi to get started, or tap the call button to interview now.`, "invite");
 }
 
 $("#composer").addEventListener("submit", (e) => {

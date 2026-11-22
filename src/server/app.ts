@@ -14,7 +14,7 @@ import { ValidationError, validateInput, validatePlan, validateReport } from "..
 export interface Deps {
   store: Store;
   eleven: Eleven;
-  agents: { planner: string; interviewer: string; scorer: string; concierge: string; recruiter: string; fit: string; matcher: string; notes: string };
+  agents: { planner: string; interviewer: string; scorer: string; concierge: string; recruiter: string; fit: string; matcher: string; notes: string; discovery: string };
   toolSecret: string;
   now: () => number;
   newId: () => string;
@@ -189,6 +189,8 @@ export async function createInterview(d: Deps, input: InterviewInput): Promise<I
 const canCall = (iv: Interview) => !!iv.plan || iv.input.instant === true;
 
 const firstName = (iv: Interview) => iv.input.candidate_name.split(/\s+/)[0];
+/** "Candidate" is the stand-in when no name is known; the spoken greeting then says "Hi there". */
+const spokenName = (iv: Interview) => (iv.input.candidate_name === "Candidate" ? "there" : firstName(iv));
 
 export async function handleApi(request: Request, d: Deps): Promise<Response> {
   const url = new URL(request.url);
@@ -313,7 +315,7 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
           interviewer_name: voice.name,
           interviewer_gender: voice.gender,
           interview_language: language.instruction,
-          candidate_first_name: firstName(iv),
+          candidate_first_name: spokenName(iv),
           role_title: iv.input.role_title,
           minutes: iv.input.minutes,
         },

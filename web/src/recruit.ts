@@ -1,5 +1,6 @@
-// The recruiter's phone: brief FirstRound by text or voice note, get a job description and candidates, connect.
-import { $, api, clock, esc, paintLogos, readCvText } from "./common";
+// The recruiter's phone: brief FirstRound by text, voice note or a discovery call, get a job description and candidates, connect.
+import { $, api, ApiError, clock, esc, paintLogos, readCvText } from "./common";
+import { type VoiceCall, connectVoice } from "./voice";
 
 interface Cand { id: string; name: string; headline: string; location: string; notice: string; score: number; top: string }
 type Action =
@@ -24,6 +25,7 @@ const ICON = {
   play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l12-7.5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4.5h4v15H6zM14 4.5h4v15h-4z"/></svg>',
   ticks: '<svg viewBox="0 0 18 12" fill="none" stroke="#2f6bff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m1 6.5 3.2 3.2L10.5 2M7.5 9.7 14 2"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.2c1.100.4 2.300.6 3.600.6a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.300.2 2.500.6 3.6a1 1 0 0 1-.2 1z"/></svg>',
 };
 const now = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const initials = (name: string) => name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -243,6 +245,124 @@ async function uploadJd(file: File) {
   await send("jd", "event", { file_text: text });
 }
 
+// ---------- the discovery call: talk through who they want to hire instead of typing it
+
+/** Longest a discovery call runs before the phone ends it; the agent aims for about five minutes. */
+const MAX_CALL_SECS = 11 * 60;
+let call: VoiceCall | null = null;
+let callStart = 0;
+let callTick = 0;
+let callOver = true;
+let dialling = false;
+let muted = false;
+
+function callMode(mode: "connecting" | "speaking" | "listening") {
+  const el = $("#call");
+  el.classList.remove("speaking", "listening");
+  if (mode !== "connecting") el.classList.add(mode);
+}
+
+/** Leaves the call screen with a line in the chat saying why, and how to try again. */
+function callFailed(message: string) {
+  callOver = true;
+  clearInterval(callTick);
+  $("#call").hidden = true;
+  chip(`${esc(message)} Tap the call button to try again.`);
+}
+
+async function startCall() {
+  if ((call && !callOver) || dialling) return;
+  if (!chatId) return; // still on the sign-in screen
+  dialling = true;
+  callOver = false;
+  callStart = 0;
+  muted = false;
+  $("#call-mute").classList.remove("on");
+  $("#call-mute").setAttribute("aria-pressed", "false");
+  $("#call-name").textContent = "FirstRound";
+  $("#call-sub").textContent = "Calling…";
+  $("#call-err").hidden = true;
+  $("#call-note").hidden = false;
+  $("#call-active").hidden = false;
+  callMode("connecting");
+  $("#call").hidden = false;
+  try {
+    try {
+      (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().forEach((t) => t.stop());
+    } catch {
+      return void callFailed("Microphone access is blocked. Allow the microphone for this site in the address bar.");
+    }
+    call = await connectVoice(
+      async (transport) => {
+        const s = await api(`/recruit/${chatId}/call`, "POST", { transport });
+        $("#call-name").textContent = s.agent_name;
+        return s;
+      },
+      {
+        onConnect: () => {
+          callStart = Date.now();
+          $("#call-note").hidden = true;
+          callTick = window.setInterval(() => {
+            const secs = (Date.now() - callStart) / 1000;
+            $("#call-sub").textContent = clock(secs);
+            $("#call").style.setProperty("--level", String(Math.min(1, (call?.getInputVolume?.() ?? 0) * 3)));
+            if (secs > MAX_CALL_SECS) void call?.endSession();
+          }, 250);
+        },
+        onModeChange: ({ mode }) => callMode(mode === "speaking" ? "speaking" : "listening"),
+        onDisconnect: () => void finishCall(),
+        onError: (message) => {
+          $("#call-err").hidden = false;
+          $("#call-err").textContent = `Connection problem: ${message}`;
+        },
+      },
+    );
+    // They hung up while it was still connecting.
+    if (callOver) void call.endSession();
+  } catch (e) {
+    callFailed(e instanceof ApiError ? e.message : "The call could not connect. Check your connection.");
+  } finally {
+    dialling = false;
+  }
+}
+
+async function finishCall() {
+  if (callOver) return;
+  callOver = true;
+  clearInterval(callTick);
+  const secs = callStart ? (Date.now() - callStart) / 1000 : 0;
+  const id = call?.getId?.();
+  call = null;
+  $("#call").hidden = true;
+  if (!callStart) return void chip("The call did not connect. Tap the call button to try again.");
+  bubble("out", `<div class="callb"><span class="ic">${ICON.phone}</span><span><div class="t" style="font-weight:600">Discovery call</div><div class="s" style="font-size:12px;color:var(--ink-2)">${clock(secs)}</div></span></div>`);
+  // The transcript takes a few seconds to be ready; FirstRound then writes up the call in the chat.
+  setPresence(true);
+  try {
+    for (let i = 0; i < 40; i++) {
+      const r = await api<{ status: "wait" | "too_short" | "done"; reply?: Msg }>(`/recruit/${chatId}/call/complete`, "POST", { conversation_id: id });
+      if (r.status === "done" && r.reply) {
+        setPresence(false);
+        return void renderBot(r.reply, true);
+      }
+      if (r.status === "too_short") {
+        setPresence(false);
+        return void chip("That call was too short to work from. Tap the call button to try again, or tell me the role here.");
+      }
+      await new Promise((res) => setTimeout(res, 2500));
+    }
+    throw new Error("The call notes are taking longer than expected.");
+  } catch (e) {
+    setPresence(false);
+    chip(`${esc((e as Error).message)} <button type="button">Try again</button>`).querySelector("button")!.addEventListener("click", (ev) => {
+      (ev.currentTarget as HTMLElement).closest(".chip")!.remove();
+      callOver = false;
+      callStart = Date.now() - secs * 1000;
+      void finishCall();
+    });
+  }
+}
+
 // ---------- start-up
 
 async function open(saved?: string) {
@@ -316,6 +436,21 @@ $("#cvfile").addEventListener("change", (e) => {
   const f = el.files?.[0];
   el.value = "";
   if (f) void uploadJd(f);
+});
+$("#head-call").addEventListener("click", () => void startCall());
+$("#call-end").addEventListener("click", () => {
+  // Before the call connects there is no session to end; just leave the screen.
+  if (call) void call.endSession();
+  else callFailed("Call cancelled.");
+});
+$("#call-mute").addEventListener("click", () => {
+  muted = !muted;
+  call?.setMicMuted(muted);
+  $("#call-mute").classList.toggle("on", muted);
+  $("#call-mute").setAttribute("aria-pressed", String(muted));
+});
+window.addEventListener("beforeunload", (e) => {
+  if (call && !callOver) e.preventDefault();
 });
 $("#group-back").addEventListener("click", () => ($("#group").hidden = true));
 const groupSend = () => {

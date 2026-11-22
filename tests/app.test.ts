@@ -107,7 +107,7 @@ beforeEach(() => {
   d = {
     store: new MemoryStore(),
     eleven,
-    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C", recruiter: "R", fit: "F", matcher: "M", notes: "N" },
+    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C", recruiter: "R", fit: "F", matcher: "M", notes: "N", discovery: "D" },
     toolSecret: "s3cret",
     now: () => clock,
     newId: () => `iv${++n}`,
@@ -563,5 +563,60 @@ describe("scoring", () => {
     await call("GET", `/interviews/${id}`);
     eleven.reply(eleven.lastJob().id, "no json again");
     expect((await call("GET", `/interviews/${id}`)).body.status).toBe("score_failed");
+  });
+});
+
+describe("calling from the phone's call button", () => {
+  it("takes a candidate with no CV straight to a general interview, and tells the chat agent with their next message", async () => {
+    const { body: chat } = await call("POST", "/chat", {});
+    const c = await call("POST", `/chat/${chat.id}/call`, {});
+    expect(c.body).toMatchObject({ role_title: "general first-round", company: "FirstRound", minutes: 10, has_cv: false, created: true });
+    const iv = (await d.store.get(c.body.interview_id))!;
+    expect(iv.input.cv_text).toMatch(/No CV has been shared/);
+    expect(iv.input.instant).toBe(true);
+    // The spoken greeting says "Hi there" rather than "Hi Candidate".
+    const s = await call("POST", `/interviews/${iv.id}/session`, {});
+    expect(s.body.variables.candidate_first_name).toBe("there");
+    // Calling again reuses the same interview.
+    expect((await call("POST", `/chat/${chat.id}/call`, {})).body).toMatchObject({ interview_id: iv.id, created: false });
+    eleven.nextReply = JSON.stringify({ say: "The call dropped, calling again.", action: { type: "start_interview", role_id: "x" } });
+    const r = await call("POST", `/chat/${chat.id}/message`, { text: "[call ended after 5 seconds: too short]", kind: "event" });
+    expect(eleven.chats[0].said.at(-1)).toMatch(/^\[The candidate pressed the call button[\s\S]*\[call ended after 5 seconds/);
+    expect(r.body.reply.action).toMatchObject({ type: "start_interview", interview_id: iv.id });
+    await call("POST", `/chat/${chat.id}/message`, { text: "thanks" });
+    expect(eleven.chats[0].said.at(-1)).toBe("thanks");
+  });
+
+  it("interviews an invited candidate for the invited role", async () => {
+    const { body: chat } = await call("POST", "/chat", { invite: "northwind-sde2" });
+    const c = await call("POST", `/chat/${chat.id}/call`, {});
+    expect(c.body).toMatchObject({ role_id: "sde2-backend-payments", company: "Northwind Pay" });
+    expect((await d.store.get(c.body.interview_id))!.input.hard_bars.location).toBeTruthy();
+  });
+
+  it("runs a recruiter discovery call and writes the job description from its transcript", async () => {
+    const { body: chat } = await call("POST", "/recruit", { recruiter: "Ananya Rao at Northwind Pay" });
+    await call("POST", `/recruit/${chat.id}/message`, { text: "Hiring a Principal in Corp Dev" });
+    const s = await call("POST", `/recruit/${chat.id}/call`, { transport: "webrtc" });
+    expect(s.body).toMatchObject({ token: "tok", variables: { recruiter_first_name: "Ananya" } });
+    expect(s.body.variables.known).toContain("Them: Hiring a Principal in Corp Dev");
+    const id = `conv_${eleven.n}`;
+    expect((await call("POST", `/recruit/${chat.id}/call/complete`, {})).body.status).toBe("wait");
+    eleven.convs.set(id, { status: "done", duration_secs: 240, turns: [{ role: "agent", text: "Tell me about the role." }, { role: "candidate", text: "Someone who has run a deal end to end." }] });
+    eleven.nextReply = JSON.stringify({ say: "JD from our call", action: { type: "jd", jd: { title: "Principal, Corp Dev", company: "Northwind Pay" } } });
+    const done = await call("POST", `/recruit/${chat.id}/call/complete`, {});
+    expect(done.body).toMatchObject({ status: "done", reply: { text: "JD from our call", action: { type: "jd", title: "Principal, Corp Dev" } } });
+    expect(eleven.chats.at(-1)!.said.at(-1)).toMatch(/\[discovery call\][\s\S]*RECRUITER: Someone who has run a deal end to end\./);
+    // Asking again does not write it up twice.
+    const said = eleven.chats.at(-1)!.said.length;
+    expect((await call("POST", `/recruit/${chat.id}/call/complete`, {})).body.status).toBe("done");
+    expect(eleven.chats.at(-1)!.said).toHaveLength(said);
+  });
+
+  it("does not write up a discovery call that dropped", async () => {
+    const { body: chat } = await call("POST", "/recruit", { recruiter: "Ananya" });
+    await call("POST", `/recruit/${chat.id}/call`, {});
+    eleven.convs.set(`conv_${eleven.n}`, { status: "done", duration_secs: 4, turns: [{ role: "agent", text: "Hi" }] });
+    expect((await call("POST", `/recruit/${chat.id}/call/complete`, {})).body.status).toBe("too_short");
   });
 });

@@ -11,6 +11,7 @@ import {
   INTERVIEWER_VOICE_ID,
 } from "../agents/interviewer";
 import { CONCIERGE_MODEL, CONCIERGE_PROMPT } from "../agents/concierge";
+import { discoveryAgentConfig } from "../agents/discovery";
 import { MATCHER_MODEL, MATCHER_PROMPT } from "../agents/matcher";
 import { PLANNER_MODEL, PLANNER_PROMPT } from "../agents/planner";
 import { FIT_MODEL, FIT_PROMPT, NOTES_MODEL, NOTES_PROMPT, RECRUITER_MODEL, RECRUITER_PROMPT } from "../agents/recruiter";
@@ -192,7 +193,8 @@ const notesConfig = textAgent(NOTES_PROMPT, NOTES_MODEL);
 notesConfig.conversation_config.agent.prompt.temperature = 0.4;
 notesConfig.conversation_config.agent.prompt.max_tokens = 1500;
 const notes = await upsertAgent(`${PREFIX}notes-writer`, notesConfig);
-const ids = { planner, interviewer, scorer, concierge, recruiter, fit, matcher, notes };
+const discovery = await upsertAgent(`${PREFIX}discovery`, discoveryAgentConfig(SERVICE_TIER));
+const ids = { planner, interviewer, scorer, concierge, recruiter, fit, matcher, notes, discovery };
 writeFileSync(new URL("../agents/ids.json", import.meta.url), JSON.stringify(ids, null, 2) + "\n");
 if (oldTimeTool) await el(`/v1/convai/tools/${oldTimeTool.id}`, "DELETE");
 console.log("Synced", ids, { briefTool });

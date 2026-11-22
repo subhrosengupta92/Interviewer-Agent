@@ -2,6 +2,7 @@
 import { type Role, inviteByCode, roleById, roleJobDescription } from "../data/roles";
 import { extractJson } from "../lib/json";
 import type { Interview, InterviewInput } from "../lib/types";
+import { voiceById } from "../lib/voices";
 import type { Deps } from "./app";
 
 export interface ChatMessage {
@@ -39,6 +40,10 @@ export interface Chat {
   candidate_name?: string;
   role_id?: string;
   interview_id?: string;
+  /** Title and company of the interview in interview_id, for calling again. */
+  interview_for?: { title: string; company: string };
+  /** Something that happened outside the conversation, to tell the chat agent with the next message. */
+  untold?: string;
   shown_roles: string[];
   applied: string[];
   /** Open roles scored against the CV, best first. Set when a CV is uploaded. */
@@ -103,6 +108,49 @@ function interviewInput(chat: Chat, role: Role): InterviewInput {
     // Ring straight away; the written plan is picked up in the background when it is ready.
     instant: true,
   };
+}
+
+/** Stands in for a CV when the candidate calls before sharing one. */
+const NO_CV = `(No CV has been shared yet: the candidate pressed the call button to start straight away. There is nothing to read here, so do not refer to a CV. Their name is not known either: "Candidate" is a placeholder, so never call them that. Early on, ask their name and what they do now, use the name from then on, then ask them to walk you through their career. Build every later question on the roles, projects and numbers they tell you about, and dig into those exactly as you would into claims on a CV.)`;
+
+/** The interview a self-discovery candidate gets when they call before any role has been matched. */
+const OPEN_TITLE = "general first-round";
+const OPEN_INTERVIEW = {
+  role_title: OPEN_TITLE,
+  job_description:
+    "A general first-round conversation for the FirstRound hiring network. There is no specific role yet: the aim is to understand what this person has done, how deep their expertise goes and what they want next, so they can be matched to open roles afterwards.",
+  competencies: [
+    { name: "Depth in their own field", kind: "functional" as const, definition: "Explains their main work precisely: how it worked, the decisions they made and why, and the numbers behind it." },
+    { name: "Problem solving", kind: "functional" as const, definition: "Breaks down a hard problem from their own work and reasons through trade-offs when pushed." },
+    { name: "Ownership", kind: "behavioural" as const, definition: "Is exact about their own part in team work and follows things through to an outcome." },
+    { name: "Communication", kind: "behavioural" as const, definition: "Answers the question asked, clearly and briefly, and stays structured under follow-up." },
+  ],
+};
+
+/**
+ * Makes sure the chat has an interview that can be called, treating every pre-interview step as done.
+ * Used when the candidate presses the call button, and when the agent asks for a call again.
+ */
+async function ensureInterview(
+  chat: Chat,
+  createInterview: (input: InterviewInput) => Promise<Interview>,
+  preferred?: Role,
+): Promise<{ interview_id: string; role_id: string; role_title: string; company: string; created: boolean }> {
+  // A candidate without a CV calls back into the interview they already have.
+  if (chat.interview_id && chat.interview_for && !chat.cv_text)
+    return { interview_id: chat.interview_id, role_id: chat.role_id ?? "", role_title: chat.interview_for.title, company: chat.interview_for.company, created: false };
+  const invited = roleById(inviteByCode(chat.invite_code)?.role_id);
+  // Invited candidates interview for the invited role. Otherwise the matcher's top role wins over the agent's pick,
+  // and a repeat call stays on the role already chosen.
+  const role = (chat.mode === "invite" ? invited : undefined) ?? roleById(chat.role_id) ?? roleById(chat.ranking?.[0]?.role_id) ?? preferred ?? invited;
+  const input: InterviewInput = role
+    ? interviewInput(chat, role)
+    : { candidate_name: chat.candidate_name ?? "Candidate", cv_text: "", ...OPEN_INTERVIEW, hard_bars: {}, minutes: 10, instant: true };
+  const iv = await createInterview({ ...input, cv_text: chat.cv_text || NO_CV });
+  chat.role_id = role?.id;
+  chat.interview_id = iv.id;
+  chat.interview_for = { title: role?.title ?? OPEN_TITLE, company: role?.company ?? "FirstRound" };
+  return { interview_id: iv.id, role_id: role?.id ?? "", role_title: chat.interview_for.title, company: chat.interview_for.company, created: true };
 }
 
 async function say(d: Deps, chat: Chat, text: string): Promise<{ say: string; action: Record<string, unknown> | null }> {
@@ -189,21 +237,10 @@ async function realise(
     case "ask_cv":
       return { type: "ask_cv" };
     case "start_interview": {
-      if (!chat.cv_text) return { type: "ask_cv" };
-      const invited = roleById(inviteByCode(chat.invite_code)?.role_id);
-      // Invited candidates interview for the invited role. Otherwise the matcher's top role wins over the agent's pick,
-      // and a repeat call stays on the role already chosen.
-      const role =
-        (chat.mode === "invite" ? invited : undefined) ??
-        roleById(chat.role_id) ??
-        roleById(chat.ranking?.[0]?.role_id) ??
-        roleById(action.role_id) ??
-        invited;
-      if (!role) return null;
-      const iv = await createInterview(interviewInput(chat, role));
-      chat.role_id = role.id;
-      chat.interview_id = iv.id;
-      return { type: "start_interview", role_id: role.id, interview_id: iv.id, role_title: role.title, company: role.company };
+      // Without a CV there is nothing to interview on yet, unless they already called in directly.
+      if (!chat.cv_text && !chat.interview_id) return { type: "ask_cv" };
+      const { created: _created, ...call } = await ensureInterview(chat, createInterview, roleById(action.role_id));
+      return { type: "start_interview", ...call };
     }
     case "roles": {
       // With a ranking, show the next best roles the candidate has not seen; otherwise use the agent's picks.
@@ -318,12 +355,27 @@ export async function handleChat(
     if (!text) return json({ error: "Say something first." }, 400);
     // The stored copy of a CV event stays short; the agent got the full text above.
     chat.messages.push({ from: "user", text: body.cv_text ? "[cv uploaded]" : text, kind: body.cv_text ? "event" : kind });
-    const reply = await say(d, chat, text);
+    const untold = chat.untold;
+    chat.untold = undefined;
+    const reply = await say(d, chat, untold ? `${untold}\n\n${text}` : text);
     const action = await realise(d, chat, reply.action, createInterview);
     const message: ChatMessage = { from: "bot", text: reply.say, action };
     chat.messages.push(message);
     await d.store.putDoc(chat.id, chat);
     return json({ reply: message });
+  }
+
+  // POST /api/chat/:id/call — the candidate pressed the call button: go straight to the interview
+  if (parts[2] === "call" && method === "POST") {
+    const call = await ensureInterview(chat, createInterview);
+    if (call.created) {
+      // The chat agent was not part of this, so it is told with the next message why the earlier steps never happened.
+      chat.untold = `[The candidate pressed the call button and went straight to a first-round voice interview${chat.role_id ? ` for ${call.role_title} at ${call.company} (role_id ${chat.role_id})` : ", a general one with no particular role"}. Treat every step before the interview as done: do not ask for a LinkedIn link or for them to join${chat.cv_text ? "" : ". They have not shared a CV; do not ask for one now, but if they later want to be matched to roles more closely, they can upload it"}.]`;
+      chat.messages.push({ from: "user", text: chat.untold, kind: "event" });
+      await d.store.putDoc(chat.id, chat);
+    }
+    const iv = await d.store.get(call.interview_id);
+    return json({ ...call, interviewer_name: voiceById(iv?.input.voice_id).name, minutes: iv?.input.minutes ?? 10, has_cv: !!chat.cv_text });
   }
 
   // POST /api/chat/:id/apply — from the role page

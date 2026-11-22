@@ -2,6 +2,7 @@
 import { type PoolCandidate, candidateById } from "../data/candidates";
 import { ROLES } from "../data/roles";
 import type { Interview } from "../lib/types";
+import { DISCOVERY_VOICE } from "../../agents/discovery";
 import { extractJson } from "../lib/json";
 import type { Deps } from "./app";
 import { resendIfCutOff } from "./chat";
@@ -62,7 +63,13 @@ export interface RecruitChat {
   notes?: Record<string, NoteSection[]>;
   learned: string[];
   rounds: number;
+  /** Discovery calls: the voice conversations started from this chat, and the ones already written up. */
+  calls?: string[];
+  calls_done?: string[];
 }
+
+/** A discovery call needs at least this much said by the recruiter to be worth writing up. */
+const MIN_DISCOVERY_SECS = 20;
 
 const POINTERS = 7;
 const MAX_CANDIDATES = 5;
@@ -270,7 +277,7 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
     const live = await livePool(d);
     // FirstRound speaks first, so the screen never opens empty.
     const first = recruiter.split(/\s+/)[0];
-    const greeting = `Hi${recruiter === "a hiring manager" ? " there" : ` ${first}`} 👋 Welcome to FirstRound. Who are you hiring? Tell me the role, or send a voice note.`;
+    const greeting = `Hi${recruiter === "a hiring manager" ? " there" : ` ${first}`} 👋 Welcome to FirstRound. Who are you hiring? Tell me the role here, or tap the call button and we can talk it through.`;
     const chat: RecruitChat = {
       id: `recruit_${d.newId()}`,
       kind: "recruit",
@@ -322,6 +329,67 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
       report_url: c.id.startsWith(LIVE_PREFIX) ? `/report?id=${c.id.slice(LIVE_PREFIX.length)}` : null,
       real: c.id.startsWith(LIVE_PREFIX),
     });
+  }
+
+  // POST /api/recruit/:id/call — start a discovery call: a voice conversation about who they want to hire
+  if (parts[2] === "call" && !parts[3] && method === "POST") {
+    const body = (await request.json().catch(() => ({}))) as { transport?: string };
+    const transport = body.transport === "websocket" ? "websocket" : "webrtc";
+    const { token, signed_url, conversation_id } = await d.eleven.getSession(d.agents.discovery, transport);
+    if (conversation_id) {
+      chat.calls = [...(chat.calls ?? []), conversation_id];
+      await d.store.putDoc(chat.id, chat);
+    }
+    // The opening greeting is ours, not something they told us; everything after it is what the call can build on.
+    const known = chat.messages
+      .slice(1)
+      .filter((m) => m.kind !== "event")
+      .slice(-16)
+      .map((m) => `${m.from === "bot" ? "FirstRound" : "Them"}: ${m.text.slice(0, 400)}`)
+      .join("\n");
+    const named = chat.recruiter !== "a hiring manager";
+    return json({
+      transport,
+      token,
+      signed_url,
+      agent_name: DISCOVERY_VOICE.name,
+      variables: {
+        agent_name: DISCOVERY_VOICE.name,
+        recruiter: chat.recruiter,
+        recruiter_first_name: named ? chat.recruiter.split(/\s+/)[0] : "there",
+        known: known || "(nothing yet: this call is the first they have told us about the role)",
+      },
+    });
+  }
+
+  // POST /api/recruit/:id/call/complete — the call ended: hand its transcript to the chat agent, which writes it up
+  if (parts[2] === "call" && parts[3] === "complete" && method === "POST") {
+    const body = (await request.json().catch(() => ({}))) as { conversation_id?: string };
+    // Only trust a browser-supplied ID when the server was not given one with the token.
+    const fromBrowser = typeof body.conversation_id === "string" && /^conv_[a-z0-9]+$/i.test(body.conversation_id) ? body.conversation_id : "";
+    const id = (chat.calls ?? []).includes(fromBrowser) ? fromBrowser : (chat.calls?.at(-1) ?? fromBrowser);
+    if (!id) return json({ status: "too_short" });
+    if (chat.calls_done?.includes(id)) return json({ status: "done", reply: chat.messages.at(-1) });
+    const snap = await d.eleven.getConversation(id).catch(() => null);
+    // ElevenLabs takes a few seconds to finish a call's transcript; the phone asks again.
+    if (!snap || (snap.status !== "done" && snap.status !== "failed")) return json({ status: "wait" });
+    chat.calls_done = [...(chat.calls_done ?? []), id];
+    if (snap.duration_secs < MIN_DISCOVERY_SECS || !snap.turns.some((t) => t.role === "candidate")) {
+      await d.store.putDoc(chat.id, chat);
+      return json({ status: "too_short" });
+    }
+    const transcript = snap.turns.map((t) => `${t.role === "agent" ? "FIRSTROUND" : "RECRUITER"}: ${t.text}`).join("\n").slice(0, 14_000);
+    const text = [
+      `[discovery call] You have just finished a ${Math.max(1, Math.round(snap.duration_secs / 60))}-minute voice call with them about who they want to hire. The transcript is below. Everything said on it counts as told to you: never ask for any of it again.`,
+      `If it gives you the role and enough of the rest, write the job description now and send it (action "jd"), filling small gaps sensibly, and say in one line that it is from the call. If something essential is missing, such as what the role is, ask for that one thing instead.`,
+      `<transcript>\n${transcript}\n</transcript>`,
+    ].join("\n\n");
+    chat.messages.push({ from: "user", text: `[discovery call, ${Math.max(1, Math.round(snap.duration_secs / 60))} min]\n${transcript.slice(0, 6000)}`, kind: "event" });
+    const reply = await say(d, chat, text);
+    const message: RecruitMessage = { from: "bot", text: reply.say, action: realise(chat, reply.action) };
+    chat.messages.push(message);
+    await d.store.putDoc(chat.id, chat);
+    return json({ status: "done", reply: message });
   }
 
   if (parts[2] === "message" && method === "POST") {
