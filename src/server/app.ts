@@ -14,7 +14,7 @@ import { ValidationError, validateInput, validatePlan, validateReport } from "..
 export interface Deps {
   store: Store;
   eleven: Eleven;
-  agents: { planner: string; interviewer: string; scorer: string; concierge: string; recruiter: string; fit: string };
+  agents: { planner: string; interviewer: string; scorer: string; concierge: string; recruiter: string; fit: string; matcher: string };
   toolSecret: string;
   now: () => number;
   newId: () => string;
@@ -259,8 +259,9 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
     }
 
     if (action === "session" && method === "POST") {
-      if (!["ready", "in_progress", "too_short"].includes(iv.status))
-        return fail(409, iv.status === "planning" ? "This interview is still being prepared." : "This interview has already been completed.");
+      // A candidate can call again at any point once the plan exists, e.g. after a dropped call.
+      // The most recent long-enough call is the one that gets scored.
+      if (!iv.plan) return fail(409, iv.status === "planning" ? "This interview is still being prepared." : "This interview could not be set up.");
       // WebRTC by default; the browser asks for a WebSocket session if WebRTC cannot connect on its network.
       const body = (await request.json().catch(() => ({}))) as { transport?: string; voice_id?: string; language?: string };
       const language = LANGUAGES.find((l) => l.code === body.language) ?? languageByCode(iv.input.language);

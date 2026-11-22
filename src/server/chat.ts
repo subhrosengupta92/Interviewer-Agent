@@ -1,5 +1,6 @@
 // The candidate chat: a live agent decides what to say and which piece of UI the phone shows next.
 import { type Role, inviteByCode, roleById, roleJobDescription } from "../data/roles";
+import { extractJson } from "../lib/json";
 import type { Interview, InterviewInput } from "../lib/types";
 import type { Deps } from "./app";
 
@@ -40,9 +41,21 @@ export interface Chat {
   interview_id?: string;
   shown_roles: string[];
   applied: string[];
+  /** Open roles scored against the CV, best first. Set when a CV is uploaded. */
+  ranking?: RoleMatch[];
+  /** The matcher's one-line reading of the CV. */
+  profile?: string;
+}
+
+export interface RoleMatch {
+  role_id: string;
+  score: number;
+  why: string;
 }
 
 const MAX_ROLES_SHOWN = 3;
+/** Out of 100, from the matcher. */
+const MIN_FIT_TO_SHOW = 40;
 const CV_FOR_AGENT = 7000;
 
 export const roleCard = (r: Role): RoleCard => ({
@@ -158,7 +171,14 @@ async function realise(
     case "start_interview": {
       if (!chat.cv_text) return { type: "ask_cv" };
       const invited = roleById(inviteByCode(chat.invite_code)?.role_id);
-      const role = (chat.mode === "invite" ? invited : undefined) ?? roleById(action.role_id) ?? roleById(chat.role_id) ?? invited;
+      // Invited candidates interview for the invited role. Otherwise the matcher's top role wins over the agent's pick,
+      // and a repeat call stays on the role already chosen.
+      const role =
+        (chat.mode === "invite" ? invited : undefined) ??
+        roleById(chat.role_id) ??
+        roleById(chat.ranking?.[0]?.role_id) ??
+        roleById(action.role_id) ??
+        invited;
       if (!role) return null;
       const iv = await createInterview(interviewInput(chat, role));
       chat.role_id = role.id;
@@ -166,7 +186,13 @@ async function realise(
       return { type: "start_interview", role_id: role.id, interview_id: iv.id, role_title: role.title, company: role.company };
     }
     case "roles": {
-      const ids = Array.isArray(action.role_ids) ? action.role_ids : [];
+      // With a ranking, show the next best roles the candidate has not seen; otherwise use the agent's picks.
+      // Roles scoring under the bar are a stretch for this CV and are not offered.
+      const ranked = (chat.ranking ?? [])
+        .filter((r) => r.score >= MIN_FIT_TO_SHOW)
+        .map((r) => r.role_id)
+        .filter((id) => !chat.shown_roles.includes(id));
+      const ids = chat.ranking?.length ? ranked : Array.isArray(action.role_ids) ? action.role_ids : [];
       const roles = ids
         .map((id) => roleById(id))
         .filter((r): r is Role => !!r)
@@ -179,6 +205,23 @@ async function realise(
       return chat.interview_id ? { type: "feedback", url: `/feedback?id=${chat.interview_id}` } : null;
     default:
       return null;
+  }
+}
+
+/** Scores the open roles against the CV text. Returns [] if the matcher fails, and the chat agent then chooses. */
+export async function matchRoles(d: Deps, cv: string): Promise<{ profile: string; ranking: RoleMatch[] }> {
+  try {
+    const conversation = await d.eleven.openChat(d.agents.matcher, {});
+    const out = extractJson<{ profile?: unknown; ranking?: unknown }>(await d.eleven.chat(conversation, `<cv>\n${cv.slice(0, 12_000)}\n</cv>`));
+    const ranking = (Array.isArray(out.ranking) ? out.ranking : [])
+      .map((r) => r as Record<string, unknown>)
+      .filter((r) => roleById(r.role_id))
+      .map((r) => ({ role_id: String(r.role_id), score: Math.max(0, Math.min(100, Math.round(Number(r.score) || 0))), why: String(r.why ?? "").trim() }))
+      .filter((r, i, all) => all.findIndex((x) => x.role_id === r.role_id) === i)
+      .sort((a, b) => b.score - a.score);
+    return { profile: typeof out.profile === "string" ? out.profile.trim() : "", ranking };
+  } catch {
+    return { profile: "", ranking: [] };
   }
 }
 
@@ -221,7 +264,14 @@ export async function handleChat(
 
   // GET /api/chat/:id — restore after a refresh
   if (parts.length === 2 && method === "GET") {
-    return json({ id: chat.id, mode: chat.mode, messages: chat.messages, interview_id: chat.interview_id ?? null, applied: chat.applied });
+    return json({
+      id: chat.id,
+      mode: chat.mode,
+      messages: chat.messages,
+      interview_id: chat.interview_id ?? null,
+      applied: chat.applied,
+      match: chat.ranking ? { profile: chat.profile ?? "", ranking: chat.ranking } : null,
+    });
   }
 
   // POST /api/chat/:id/message
@@ -232,7 +282,18 @@ export async function handleChat(
     if (typeof body.cv_text === "string" && body.cv_text.trim()) {
       chat.cv_text = body.cv_text.trim().slice(0, 40_000);
       chat.candidate_name = nameFromCv(chat.cv_text);
-      text = `[cv uploaded] The candidate's CV:\n${chat.cv_text.slice(0, CV_FOR_AGENT)}`;
+      const match = await matchRoles(d, chat.cv_text);
+      chat.ranking = match.ranking;
+      chat.profile = match.profile;
+      chat.role_id = undefined;
+      const lines = match.ranking.map((r, i) => {
+        const role = roleById(r.role_id)!;
+        return `${i + 1}. ${role.id} | ${role.title} at ${role.company} | fit ${r.score}/100 | ${r.why}`;
+      });
+      const matched = lines.length
+        ? `\n\n[role match, computed from the CV text. Use it as given: the interview is for number 1, and role cards follow this order. Tell the candidate the reason in your own words; never mention a number or a ranking.]\nProfile: ${match.profile}\n${lines.join("\n")}`
+        : "";
+      text = `[cv uploaded] The candidate's CV:\n${chat.cv_text.slice(0, CV_FOR_AGENT)}${matched}`;
     }
     if (!text) return json({ error: "Say something first." }, 400);
     // The stored copy of a CV event stays short; the agent got the full text above.

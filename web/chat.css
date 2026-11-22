@@ -225,3 +225,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .points li { counter-increment: p; display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start; padding: 13px 0; border-top: 1px solid var(--line); font-size: 17.5px; line-height: 1.4; margin: 0; }
 .points li::before { content: counter(p); width: 30px; height: 30px; border-radius: 9px; background: var(--navy); color: var(--lime); font-weight: 800; font-size: 14px; display: grid; place-items: center; }
 .points li.check::before { background: #fff3d6; color: #8a5a00; content: "?"; }
+
+.head-icons { align-items: center; }
+.head-icons button { color: #fff; display: grid; place-items: center; width: 34px; height: 34px; margin: -7px; border-radius: 50%; }
+.head-icons button:hover { background: rgba(255, 255, 255, .12); }

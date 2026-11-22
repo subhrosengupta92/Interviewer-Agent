@@ -107,7 +107,7 @@ beforeEach(() => {
   d = {
     store: new MemoryStore(),
     eleven,
-    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C", recruiter: "R", fit: "F" },
+    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C", recruiter: "R", fit: "F", matcher: "M" },
     toolSecret: "s3cret",
     now: () => clock,
     newId: () => `iv${++n}`,
@@ -213,9 +213,15 @@ describe("candidate routes", () => {
     await call("POST", `/interviews/${id}/complete`);
     expect((await call("GET", `/interviews/${id}`)).body.status).toBe("scoring");
   });
-  it("refuse a session before the plan is ready and after the report is done", async () => {
+  it("refuse a session before the plan is ready, and allow calling again after a call has been scored", async () => {
     const { body } = await call("POST", "/interviews", input);
     expect((await call("POST", `/interviews/${body.id}/session`)).status).toBe(409);
+    const id = await toReady();
+    await toScoring(id);
+    eleven.reply(eleven.lastJob().id, JSON.stringify(report));
+    expect((await call("GET", `/interviews/${id}`)).body.status).toBe("done");
+    expect((await call("POST", `/interviews/${id}/session`)).status).toBe(200);
+    expect((await call("GET", `/interviews/${id}/candidate`)).body.status).toBe("in_progress");
   });
 });
 
@@ -290,6 +296,29 @@ describe("candidate chat", () => {
     const iv = await d.store.get(r.body.reply.action.interview_id);
     expect(iv!.input).toMatchObject({ candidate_name: "Meera Krishnan", minutes: 10, hard_bars: { compensation_budget: "Up to ₹42 lakh per year fixed" } });
     expect(eleven.chats[0].said.at(-1)).toContain("[cv uploaded]");
+  });
+  it("uses the matcher's ranking of the CV for the interview role and the role cards, over the agent's own picks", async () => {
+    const { body: chat } = await call("POST", "/chat", {});
+    const ranking = { profile: "Venture investor, 10 years", ranking: [
+      { role_id: "growth-equity-vp", score: 78, why: "Growth investing at a fund" },
+      { role_id: "vc-principal", score: 91, why: "Led Series A deals" },
+      { role_id: "made-up", score: 99, why: "x" },
+      { role_id: "head-new-ventures", score: 70, why: "Built ventures" },
+      { role_id: "corp-dev-strategy", score: 66, why: "Deal experience" },
+    ] };
+    const original = eleven.chat.bind(eleven);
+    eleven.chat = async (id, text) => (text.startsWith("<cv>") ? JSON.stringify(ranking) : original(id, text));
+    eleven.nextReply = '{"say":"Setting up","action":{"type":"start_interview","role_id":"sde2-frontend"}}';
+    const r = await call("POST", `/chat/${chat.id}/message`, { text: "x", cv_text: "Subhro Sengupta\nPrincipal at a venture fund. Led six Series A investments." });
+    expect(r.body.reply.action.role_id).toBe("vc-principal");
+    expect(eleven.chats.at(-2)!.said.at(-1)).toMatch(/\[role match[\s\S]*1\. vc-principal \| Principal, Venture Investments at Meridian Ventures \| fit 91\/100/);
+    const state = await call("GET", `/chat/${chat.id}`);
+    expect(state.body.match.ranking.map((x: any) => x.role_id)).toEqual(["vc-principal", "growth-equity-vp", "head-new-ventures", "corp-dev-strategy"]);
+    eleven.nextReply = '{"say":"Roles","action":{"type":"roles","role_ids":["sre","ml-engineer"]}}';
+    const first = await call("POST", `/chat/${chat.id}/message`, { text: "[call ended after 9 minutes]", kind: "event" });
+    expect(first.body.reply.action.roles.map((x: any) => x.id)).toEqual(["vc-principal", "growth-equity-vp", "head-new-ventures"]);
+    const more = await call("POST", `/chat/${chat.id}/message`, { text: "more roles?" });
+    expect(more.body.reply.action.roles.map((x: any) => x.id)).toEqual(["corp-dev-strategy"]);
   });
   it("never shows more than three roles, and only real ones", async () => {
     const { body: chat } = await call("POST", "/chat", {});

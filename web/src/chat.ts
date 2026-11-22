@@ -328,6 +328,26 @@ function ring(a: CallInfo, interviewer: string) {
   $("#call").hidden = false;
 }
 
+/** The candidate calls FirstRound, e.g. after a dropped call. Goes straight to connecting; no ringing. */
+async function callBack() {
+  if (call && !callOver) return; // already on a call
+  if (!callInfo) {
+    // After a refresh the page only knows the interview's ID; fetch the rest.
+    const state = chatId ? await api(`/chat/${chatId}`).catch(() => null) : null;
+    const c = state?.interview_id ? await api(`/interviews/${state.interview_id}/candidate`).catch(() => null) : null;
+    if (!c) return void chip("Share your CV first and I'll set up your call.");
+    if (c.status === "planning") return void chip("Your interviewer is still being set up. You'll get a call here in a moment.");
+    callMinutes = c.minutes;
+    callInfo = { interview_id: state.interview_id, role_title: c.role_title, company: "FirstRound" };
+    $("#call-name").textContent = c.interviewer_name;
+  }
+  $("#call-label").textContent = "CALLING FIRSTROUND";
+  $("#call-sub").textContent = "Calling…";
+  $("#call-err").hidden = true;
+  $("#call").hidden = false;
+  await acceptCall();
+}
+
 function hideCall() {
   $("#call").hidden = true;
 }
@@ -522,6 +542,7 @@ $("#cvfile").addEventListener("change", (e) => {
   if (f) void uploadCv(f);
 });
 $("#call-accept").addEventListener("click", () => void acceptCall());
+$("#head-call").addEventListener("click", () => void callBack());
 $("#call-decline").addEventListener("click", () => {
   hideCall();
   const info = callInfo;
