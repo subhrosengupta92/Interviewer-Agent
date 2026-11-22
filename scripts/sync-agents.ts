@@ -2,12 +2,12 @@
  * Creates or updates the three ElevenLabs agents and the Interviewer's two lookup tools
  * from the config in agents/. Run: BASE_URL=https://… TOOL_SECRET=… npm run sync-agents
  */
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   INTERVIEWER_FIRST_MESSAGE,
   INTERVIEWER_FIRST_MESSAGE_HI,
   INTERVIEWER_MODEL,
-  INTERVIEWER_PROMPT,
+  interviewerPrompt,
   INTERVIEWER_VOICE_ID,
 } from "../agents/interviewer";
 import { PLANNER_MODEL, PLANNER_PROMPT } from "../agents/planner";
@@ -16,6 +16,8 @@ import { SCORER_MODEL, SCORER_PROMPT } from "../agents/scorer";
 import { el } from "./eleven-admin";
 
 const PREFIX = "interviewer-agent/";
+// Everything below the file's introduction is given to the Interviewer verbatim.
+const doNotSay = readFileSync(new URL("../agents/do-not-say.md", import.meta.url), "utf8").split("\n").slice(4).join("\n").trim();
 const BASE_URL = (process.env.BASE_URL ?? "").replace(/\/$/, "");
 const TOOL_SECRET = process.env.TOOL_SECRET ?? "";
 if (!BASE_URL || !TOOL_SECRET) throw new Error("Set BASE_URL and TOOL_SECRET");
@@ -138,7 +140,7 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
         },
       },
       prompt: {
-        prompt: INTERVIEWER_PROMPT,
+        prompt: interviewerPrompt(doNotSay),
         llm: INTERVIEWER_MODEL,
         temperature: 0.7,
         tool_ids: [briefTool],
