@@ -18,6 +18,7 @@ const input = $("#text") as HTMLInputElement;
 const sendBtn = $("#send") as HTMLButtonElement;
 /** Calls shorter than this are treated as dropped, matching the server's minimum for scoring. */
 const MIN_CALL_SECS = 45;
+const RING_DELAY_MS = 4000;
 
 let chatId = "";
 /** Resolves once the chat has been opened, so a message typed early is not lost. */
@@ -292,6 +293,8 @@ async function prepareCall(a: CallInfo, prep: HTMLElement) {
       // The manager view advances the plan; nudging it here keeps the chat self-sufficient.
       if (c.can_call) {
         callMinutes = c.minutes;
+        // A short beat so the message above can be read before the call screen covers it.
+        await new Promise((r) => setTimeout(r, RING_DELAY_MS));
         prep.innerHTML = `<span>📞 Calling you now…</span>`;
         ring(a, c.interviewer_name);
         return;
