@@ -107,7 +107,7 @@ beforeEach(() => {
   d = {
     store: new MemoryStore(),
     eleven,
-    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C", recruiter: "R", fit: "F", matcher: "M", notes: "N", discovery: "D" },
+    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C", recruiter: "R", fit: "F", matcher: "M", notes: "N", discovery: "D", analyst: "A" },
     toolSecret: "s3cret",
     now: () => clock,
     newId: () => `iv${++n}`,
@@ -618,5 +618,64 @@ describe("calling from the phone's call button", () => {
     await call("POST", `/recruit/${chat.id}/call`, {});
     eleven.convs.set(`conv_${eleven.n}`, { status: "done", duration_secs: 4, turns: [{ role: "agent", text: "Hi" }] });
     expect((await call("POST", `/recruit/${chat.id}/call/complete`, {})).body.status).toBe("too_short");
+  });
+});
+
+describe("hiring from a shared job description", () => {
+  const jdReply = JSON.stringify({
+    say: "JD ready",
+    action: { type: "jd", jd: { title: "Principal, Corp Dev", company: "Northwind Pay", location: "Mumbai", salary: "₹60–80 LPA", experience: "8–12 years", summary: "s", responsibilities: ["a"], requirements: ["closed two deals"], competencies: [{ name: "Deal execution", kind: "functional", definition: "Has run a deal end to end" }, { name: "Ownership", kind: "behavioural", definition: "Follows through" }] } },
+  });
+
+  async function roleWithJd() {
+    const { body: chat } = await call("POST", "/recruit", { recruiter: "Ananya Rao at Northwind Pay" });
+    eleven.nextReply = jdReply;
+    await call("POST", `/recruit/${chat.id}/message`, { text: "hiring a principal" });
+    const jd = (await call("GET", `/recruit/${chat.id}/jd`)).body;
+    return { chat, jd };
+  }
+
+  it("gives the job description a public link that hides the recruiter's chat and the interview areas", async () => {
+    const { chat, jd } = await roleWithJd();
+    expect(jd.share_id).toMatch(/^jd_/);
+    expect(jd.competencies).toBeUndefined();
+    const open = await call("GET", `/jd/${jd.share_id}`);
+    expect(open.body).toMatchObject({ title: "Principal, Corp Dev", share_id: jd.share_id });
+    expect(JSON.stringify(open.body)).not.toContain(chat.id);
+    expect((await call("GET", "/jd/jd_nope")).status).toBe(404);
+    expect((await call("POST", "/chat", { jd: "jd_nope" })).status).toBe(404);
+  });
+
+  it("interviews a candidate from the link for that role, and lists them on the role screen", async () => {
+    const { chat, jd } = await roleWithJd();
+    const { body: cand } = await call("POST", "/chat", { jd: jd.share_id });
+    expect(cand).toMatchObject({ mode: "invite", invite: { invited_by: "Ananya Rao at Northwind Pay", role: { title: "Principal, Corp Dev" } } });
+    const c = await call("POST", `/chat/${cand.id}/call`, {});
+    expect(c.body).toMatchObject({ role_title: "Principal, Corp Dev", company: "Northwind Pay" });
+    const iv = (await d.store.get(c.body.interview_id))!;
+    expect(iv.input.competencies.map((x) => x.name)).toEqual(["Deal execution", "Ownership"]);
+    // Not listed until they have actually been on a call.
+    expect((await call("GET", `/recruit/${chat.id}/room`)).body.candidates).toEqual([]);
+    await call("POST", `/interviews/${iv.id}/session`, {});
+    const room = await call("GET", `/recruit/${chat.id}/room`);
+    expect(room.body.role.title).toBe("Principal, Corp Dev");
+    expect(room.body.candidates).toMatchObject([{ id: `live-${iv.id}`, source: "link", status: "interviewing", score: null }]);
+  });
+
+  it("answers questions from the candidates' notes, sending the notes only when they change", async () => {
+    const { chat } = await roleWithJd();
+    eleven.nextReply = JSON.stringify({ say: "Here are two", action: { type: "candidates", picks: [{ id: "c-rhea", why: "Ran two deals" }, { id: "c-kabir", why: "Diligence" }], learned: [] } });
+    await call("POST", `/recruit/${chat.id}/message`, { text: "go" });
+    const room = await call("GET", `/recruit/${chat.id}/room`);
+    expect(room.body.candidates.map((c: any) => [c.name, c.source, c.status])).toEqual([["Rhea Kapoor", "network", "done"], ["Kabir Anand", "network", "done"]]);
+    eleven.nextReply = "Rhea Kapoor: ran two acquisitions end to end.";
+    const a = await call("POST", `/recruit/${chat.id}/room/ask`, { text: "Who is strongest on deals?" });
+    expect(a.body.answer).toBe("Rhea Kapoor: ran two acquisitions end to end.");
+    const said = eleven.chats.at(-1)!.said;
+    expect(said[0]).toMatch(/<candidates>[\s\S]*## Rhea Kapoor[\s\S]*## Kabir Anand[\s\S]*Who is strongest on deals\?$/);
+    await call("POST", `/recruit/${chat.id}/room/ask`, { text: "And on modelling?" });
+    expect(said[1]).toBe("And on modelling?");
+    expect((await call("GET", `/recruit/${chat.id}/room`)).body.messages).toHaveLength(4);
+    expect((await call("POST", `/recruit/${chat.id}/room/ask`, { text: " " })).status).toBe(400);
   });
 });

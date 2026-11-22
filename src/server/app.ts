@@ -8,13 +8,13 @@ import type { Interview, InterviewInput } from "../lib/types";
 import { LANGUAGES, VOICES, languageByCode, previewLine, voiceById } from "../lib/voices";
 import { ROLES, roleById } from "../data/roles";
 import { handleChat, publicRole } from "./chat";
-import { handleRecruit } from "./recruit";
+import { handleJd, handleRecruit } from "./recruit";
 import { ValidationError, validateInput, validatePlan, validateReport } from "../lib/validate";
 
 export interface Deps {
   store: Store;
   eleven: Eleven;
-  agents: { planner: string; interviewer: string; scorer: string; concierge: string; recruiter: string; fit: string; matcher: string; notes: string; discovery: string };
+  agents: { planner: string; interviewer: string; scorer: string; concierge: string; recruiter: string; fit: string; matcher: string; notes: string; discovery: string; analyst: string };
   toolSecret: string;
   now: () => number;
   newId: () => string;
@@ -221,7 +221,9 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
 
     if (parts[0] === "chat") return handleChat(request, parts, d, (input) => createInterview(d, validateInput(input)));
 
-    if (parts[0] === "recruit") return handleRecruit(request, parts, d);
+    if (parts[0] === "recruit") return handleRecruit(request, parts, d, (iv) => advance(d, iv));
+
+    if (parts[0] === "jd") return handleJd(request, parts, d);
 
     if (parts[0] === "roles" && method === "GET") {
       if (!parts[1]) return json({ roles: ROLES.map(publicRole) });

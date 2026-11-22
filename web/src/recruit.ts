@@ -96,7 +96,7 @@ function renderBot(m: Msg, live: boolean) {
     meta.before(...wrap.childNodes);
   };
   if (a.type === "jd") {
-    add(`<a class="file" href="${esc(a.url)}" target="_blank" rel="noopener"><span class="ic doc">JD</span><span><div class="t">${esc(a.title)}</div><div class="s">Job description${a.company ? ` · ${esc(a.company)}` : ""} · opens in a new tab</div></span></a>`);
+    add(`<a class="file" href="${esc(a.url)}" target="_blank" rel="noopener"><span class="ic doc">JD</span><span><div class="t">${esc(a.title)}</div><div class="s">Job description${a.company ? ` · ${esc(a.company)}` : ""} · share it so candidates can interview</div></span></a>`);
     if (live) {
       add('<button type="button" class="act">Looks good, show me candidates</button>');
       const b = el.querySelector(".act") as HTMLButtonElement;
@@ -119,6 +119,7 @@ function renderBot(m: Msg, live: boolean) {
         )
         .join("")}</div>`,
     );
+    add(`<a class="file room" href="/room?chat=${encodeURIComponent(chatId)}" target="_blank" rel="noopener"><span class="ic doc">ALL</span><span><div class="t">Everyone interviewed for this role</div><div class="s">Compare them and ask the notes · opens in a new tab</div></span></a>`);
     el.querySelectorAll<HTMLButtonElement>("[data-connect]").forEach((b) => b.addEventListener("click", () => say(`Connect me with ${b.dataset.connect}.`)));
     // Write each candidate's one-page document now, so it opens instantly when clicked.
     if (live) void (async () => { for (const c of a.candidates) await api(`/recruit/${chatId}/fit/${c.id}`).catch(() => {}); })();

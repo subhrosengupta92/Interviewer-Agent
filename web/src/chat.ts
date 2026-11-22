@@ -11,8 +11,12 @@ type Action =
   | { type: "feedback"; url: string };
 interface Msg { from: "user" | "bot"; text: string; kind?: string; action?: Action | null }
 
-const invite = new URLSearchParams(location.search).get("invite") ?? "";
-const storeKey = `firstround-chat-${invite || "self"}`;
+const query = new URLSearchParams(location.search);
+/** A demo invitation code, or a company's shared job description: both are an invitation to interview for one role. */
+const jd = query.get("jd") ?? "";
+const invite = query.get("invite") ?? "";
+const invited = !!(jd || invite);
+const storeKey = `firstround-chat-${jd || invite || "self"}`;
 const msgs = $("#msgs");
 const input = $("#text") as HTMLInputElement;
 const sendBtn = $("#send") as HTMLButtonElement;
@@ -464,7 +468,7 @@ async function waitForFeedback(interviewId: string) {
 async function start() {
   paintLogos();
   syncSendIcon();
-  $(invite ? "#mode-invite" : "#mode-self").classList.add("on");
+  if (invited) $("#mode-invite")?.classList.add("on");
   const tick = () => ($("#clock").textContent = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M/i, ""));
   tick();
   setInterval(tick, 20_000);
@@ -495,7 +499,7 @@ async function start() {
     return;
   }
   try {
-    const c = await api<{ id: string; invite: null | { invited_by: string; role: { title: string; company: string } } }>("/chat", "POST", { invite });
+    const c = await api<{ id: string; invite: null | { invited_by: string; role: { title: string; company: string } } }>("/chat", "POST", { invite, jd });
     chatId = c.id;
     try {
       localStorage.setItem(storeKey, chatId);
@@ -509,7 +513,7 @@ async function start() {
 }
 
 async function showInvite(inv?: null | { invited_by: string; role: { title: string; company: string } }) {
-  if (!invite) return void chip("Say hi to get started, or tap the call button to go straight to your interview.");
+  if (!invited) return void chip("Say hi to get started, or tap the call button to go straight to your interview.");
   if (inv === undefined) {
     // Restoring: rebuild the invite card from the public role list.
     chip("You were invited to interview through FirstRound.", "invite");

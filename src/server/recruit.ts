@@ -1,7 +1,7 @@
 // The recruiter chat: brief → job description → five candidates → feedback loop → connect.
 import { type PoolCandidate, candidateById } from "../data/candidates";
-import { ROLES } from "../data/roles";
-import type { Interview } from "../lib/types";
+import { type Role, ROLES } from "../data/roles";
+import type { Competency, Interview } from "../lib/types";
 import { DISCOVERY_VOICE } from "../../agents/discovery";
 import { extractJson } from "../lib/json";
 import type { Deps } from "./app";
@@ -16,6 +16,31 @@ export interface JobDescription {
   summary: string;
   responsibilities: string[];
   requirements: string[];
+  /** What the first-round interviewer tests for this role. Written with the job description. */
+  competencies?: Competency[];
+}
+
+/** A public link to one job description. Candidates open it; it never reveals the recruiter's chat. */
+export interface JdLink {
+  id: string;
+  kind: "jdlink";
+  recruit: string;
+}
+
+export interface RoomCandidate {
+  id: string;
+  name: string;
+  headline: string;
+  /** "link": did their first round from the shared job description. "network": already on FirstRound. */
+  source: "link" | "network";
+  status: "interviewing" | "scoring" | "done" | "incomplete";
+  score: number | null;
+  strong: string[];
+  check: string[];
+  location: string;
+  notice: string;
+  /** The fit page (network) or the full report (link), once there is one. */
+  url: string | null;
 }
 
 export interface NoteSection {
@@ -66,6 +91,12 @@ export interface RecruitChat {
   /** Discovery calls: the voice conversations started from this chat, and the ones already written up. */
   calls?: string[];
   calls_done?: string[];
+  /** The public link to this chat's job description. */
+  share_id?: string;
+  /** Interviews started from that link, newest last. */
+  applicants?: string[];
+  /** The "ask the notes" conversation on the role screen. */
+  room?: { conversation_id: string; told: string; messages: { from: "user" | "bot"; text: string }[] };
 }
 
 /** A discovery call needs at least this much said by the recruiter to be worth writing up. */
@@ -94,9 +125,14 @@ const firstSentence = (text: string, max = 170) => {
 
 /** Turns a finished real interview into a pool candidate, using only what its report says. */
 export function candidateFromInterview(iv: Interview): PoolCandidate | null {
+  // Only interviews for network roles; the setup-page demo runs and company-specific roles are left out.
+  return ROLES.some((x) => x.title === iv.input.role_title) ? fromReport(iv) : null;
+}
+
+/** Any finished interview with a real call behind it, as a candidate record. */
+function fromReport(iv: Interview): PoolCandidate | null {
   const r = iv.report;
-  // Only interviews for network roles that involved a real call; the setup-page demo runs are left out.
-  if (iv.status !== "done" || !r || !iv.conversation_ids.length || !ROLES.some((x) => x.title === iv.input.role_title)) return null;
+  if (iv.status !== "done" || !r || !iv.conversation_ids.length) return null;
   const scored = r.competencies.filter((c) => c.score !== null).sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const strengths = [
     ...scored.filter((c) => (c.score ?? 0) >= 3).map((c) => `${c.name}: ${firstSentence(c.rationale)}`),
@@ -180,6 +216,12 @@ function realise(chat: RecruitChat, action: Record<string, unknown> | null): Rec
       responsibilities: strs(j.responsibilities),
       requirements: strs(j.requirements),
     };
+    const competencies = (Array.isArray(j.competencies) ? j.competencies : [])
+      .map((c) => c as Record<string, unknown>)
+      .map((c) => ({ name: str(c.name).slice(0, 60), kind: c.kind === "behavioural" ? ("behavioural" as const) : ("functional" as const), definition: str(c.definition).slice(0, 300) }))
+      .filter((c, i, all) => c.name && all.findIndex((x) => x.name.toLowerCase() === c.name.toLowerCase()) === i)
+      .slice(0, 6);
+    if (competencies.length) jd.competencies = competencies;
     if (!jd.title) return null;
     chat.jd = jd;
     return { type: "jd", url: `/jd?chat=${chat.id}`, title: jd.title, company: jd.company };
@@ -268,7 +310,163 @@ async function interviewNotes(d: Deps, c: PoolCandidate): Promise<NoteSection[]>
   }
 }
 
-export async function handleRecruit(request: Request, parts: string[], d: Deps): Promise<Response> {
+/** What a first round tests when the job description came without its own list. */
+const fallbackCompetencies = (jd: JobDescription): Competency[] => [
+  { name: "Core skills for the role", kind: "functional", definition: jd.requirements.slice(0, 3).join("; ") || `What a ${jd.title} must be able to do.` },
+  { name: "Depth in their own work", kind: "functional", definition: "Explains their main work precisely: how it worked, the decisions they made and why, and the numbers behind it." },
+  { name: "Ownership", kind: "behavioural", definition: "Is exact about their own part in team work and follows things through to an outcome." },
+  { name: "Communication", kind: "behavioural", definition: "Answers the question asked, clearly and briefly, and stays structured under follow-up." },
+];
+
+/** Gives a chat's job description its public link the first time there is one to share. */
+async function ensureShare(d: Deps, chat: RecruitChat) {
+  if (!chat.jd || chat.share_id) return;
+  chat.share_id = `jd_${d.newId()}`;
+  const link: JdLink = { id: chat.share_id, kind: "jdlink", recruit: chat.id };
+  await d.store.putDoc(link.id, link);
+}
+
+const publicJd = ({ competencies: _c, ...jd }: JobDescription) => jd;
+const company = (chat: RecruitChat) => chat.jd?.company || chat.recruiter.split(/\s+at\s+/)[1] || "";
+
+/** The role a shared job description stands for, as a candidate chat needs it. Null if the link is unknown. */
+export async function roleFromShare(d: Deps, shareId: unknown): Promise<{ role: Role; recruit_id: string; invited_by: string } | null> {
+  if (typeof shareId !== "string" || !/^jd_[a-z0-9]+$/i.test(shareId)) return null;
+  const link = await d.store.getDoc<JdLink>(shareId);
+  const chat = link?.kind === "jdlink" ? await d.store.getDoc<RecruitChat>(link.recruit) : null;
+  const jd = chat?.jd;
+  if (!chat || !jd) return null;
+  return {
+    recruit_id: chat.id,
+    invited_by: chat.recruiter === "a hiring manager" ? `the hiring team${jd.company ? ` at ${jd.company}` : ""}` : chat.recruiter,
+    role: {
+      id: shareId,
+      title: jd.title,
+      company: company(chat) || "the hiring company",
+      about: "",
+      location: jd.location,
+      salary: jd.salary,
+      // The range in the job description is the only budget we were given.
+      budget: jd.salary,
+      experience: jd.experience,
+      summary: jd.summary,
+      responsibilities: jd.responsibilities,
+      requirements: jd.requirements,
+      competencies: jd.competencies?.length ? jd.competencies : fallbackCompetencies(jd),
+      tags: [],
+    },
+  };
+}
+
+/** Records that an interview was started from a chat's shared job description. */
+export async function addApplicant(d: Deps, recruitId: string, interviewId: string) {
+  const chat = await d.store.getDoc<RecruitChat>(recruitId);
+  if (!chat || chat.kind !== "recruit" || chat.applicants?.includes(interviewId)) return;
+  chat.applicants = [...(chat.applicants ?? []), interviewId];
+  await d.store.putDoc(chat.id, chat);
+}
+
+/** GET /api/jd/:share — the job description as candidates see it. */
+export async function handleJd(request: Request, parts: string[], d: Deps): Promise<Response> {
+  const found = request.method === "GET" ? await roleFromShare(d, parts[1]) : null;
+  const chat = found ? await d.store.getDoc<RecruitChat>(found.recruit_id) : null;
+  return chat?.jd ? json({ ...publicJd(chat.jd), share_id: chat.share_id }) : json({ error: "This job description is no longer available." }, 404);
+}
+
+// ---------- the role screen: everyone interviewed for this role, and questions over their notes
+
+interface RoomEntry {
+  card: RoomCandidate;
+  /** Everything known about the candidate, for the agent that answers questions. Empty until their interview is scored. */
+  brief: string;
+}
+
+const noteLines = (notes: NoteSection[] | undefined) => (notes ?? []).map((n) => `  ${n.section}: ${n.points.join(" | ")}`).join("\n");
+
+async function roomEntries(d: Deps, chat: RecruitChat, advance: (iv: Interview) => Promise<boolean>): Promise<RoomEntry[]> {
+  const out: RoomEntry[] = [];
+  // People who did their first round from the shared job description, newest first.
+  for (const id of [...(chat.applicants ?? [])].reverse()) {
+    const iv = await d.store.get(id);
+    if (!iv) continue;
+    if (await advance(iv).catch(() => false)) await d.store.put(iv);
+    const c = fromReport(iv);
+    const r = iv.report;
+    const waiting = ["planning", "ready", "in_progress"].includes(iv.status);
+    // Someone who opened the link but has not been on a call yet is not a candidate.
+    if (waiting && !iv.conversation_ids.length) continue;
+    const card: RoomCandidate = {
+      id: `${LIVE_PREFIX}${iv.id}`,
+      name: iv.input.candidate_name === "Candidate" ? "Candidate (no name given)" : iv.input.candidate_name,
+      headline: c ? `Interviewed for this role` : waiting ? "On their first-round call" : iv.status === "scoring" ? "Interview finished, notes being written" : "Call ended too early to assess",
+      source: "link",
+      status: c ? "done" : waiting ? "interviewing" : iv.status === "scoring" ? "scoring" : "incomplete",
+      score: c?.score ?? null,
+      strong: c ? (c.skills.length ? c.skills : c.strengths.map((x) => x.split(":")[0])).slice(0, 4) : [],
+      check: c ? c.watch.map((x) => firstSentence(x, 90)).slice(0, 2) : [],
+      location: "",
+      notice: "",
+      url: c ? `/report?id=${iv.id}` : null,
+    };
+    const brief =
+      c && r
+        ? [
+            `## ${card.name} (id ${card.id}) | did their first round from the shared job description | overall ${r.overall_score}/10`,
+            `Summary: ${r.summary}`,
+            `Areas tested (score out of 5):\n${r.competencies.map((x) => `  ${x.name}: ${x.score ?? "not enough evidence"}. ${x.rationale}`).join("\n")}`,
+            r.claims.length ? `CV claims checked:\n${r.claims.map((x) => `  ${x.claim}: ${x.verdict.replace(/_/g, " ")}. ${x.note}`).join("\n")}` : "",
+            r.hard_bars.length ? `Practical points:\n${r.hard_bars.map((x) => `  ${x.label}: ${x.status.replace(/_/g, " ")}. ${x.note}`).join("\n")}` : "",
+            `Interview notes:\n${noteLines(r.notes)}`,
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : "";
+    out.push({ card, brief });
+  }
+  // People from the FirstRound network that this chat has shown for the role.
+  for (const id of Object.keys(chat.shown)) {
+    const c = find(chat, id);
+    if (!c || out.some((e) => e.card.id === c.id)) continue;
+    const card: RoomCandidate = {
+      id: c.id,
+      name: c.name,
+      headline: c.headline,
+      source: "network",
+      status: "done",
+      score: c.score,
+      strong: (c.skills.length ? c.skills : c.strengths.map((x) => x.split(":")[0])).slice(0, 4),
+      check: c.watch.map((x) => firstSentence(x, 90)).slice(0, 2),
+      location: c.location,
+      notice: c.notice,
+      url: `/fit?chat=${chat.id}&c=${encodeURIComponent(c.id)}`,
+    };
+    const brief = [
+      `## ${c.name} (id ${c.id}) | from the FirstRound network | overall ${c.score}/10 in a first round for ${c.interviewed_for}`,
+      `Profile: ${c.headline}${c.years ? `; ${c.years} years` : ""}${c.location ? `; based in ${c.location}` : ""}${c.notice ? `; notice ${c.notice}` : ""}${c.expects ? `; expects ${c.expects}` : ""}`,
+      `Strong on: ${c.skills.join(", ") || "see below"}`,
+      `What stood out:\n${c.strengths.map((x) => `  ${x}`).join("\n")}`,
+      `To check:\n${c.watch.map((x) => `  ${x}`).join("\n") || "  nothing flagged"}`,
+      chat.shown[c.id] ? `Why shown for this role: ${chat.shown[c.id]}` : "",
+      chat.notes?.[c.id] ? `Interview notes:\n${noteLines(chat.notes[c.id])}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+    out.push({ card, brief });
+  }
+  return out;
+}
+
+const roomContext = (chat: RecruitChat, entries: RoomEntry[]) =>
+  [
+    `<role>\n${JSON.stringify(chat.jd ?? {})}\n</role>`,
+    `<what_the_hiring_manager_has_said_they_want>\n${chat.learned.map((l) => `- ${l}`).join("\n") || "- nothing beyond the job description"}\n</what_the_hiring_manager_has_said_they_want>`,
+    `<candidates>\n${entries.filter((e) => e.brief).map((e) => e.brief).join("\n\n") || "(no one has a finished interview yet)"}\n</candidates>`,
+    entries.some((e) => !e.brief) ? `<still_in_progress>\n${entries.filter((e) => !e.brief).map((e) => `- ${e.card.name}: ${e.card.headline}`).join("\n")}\n</still_in_progress>` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+export async function handleRecruit(request: Request, parts: string[], d: Deps, advance: (iv: Interview) => Promise<boolean> = async () => false): Promise<Response> {
   const method = request.method;
 
   if (parts.length === 1 && method === "POST") {
@@ -302,7 +500,62 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
   if (parts.length === 2 && method === "GET") return json({ id: chat.id, recruiter: chat.recruiter, messages: chat.messages });
 
   // Documents that open in a new tab
-  if (parts[2] === "jd" && method === "GET") return chat.jd ? json(chat.jd) : json({ error: "No job description yet" }, 404);
+  if (parts[2] === "jd" && method === "GET") {
+    if (!chat.jd) return json({ error: "No job description yet" }, 404);
+    // Older chats got their job description before links existed.
+    if (!chat.share_id) {
+      await ensureShare(d, chat);
+      await d.store.putDoc(chat.id, chat);
+    }
+    return json({ ...publicJd(chat.jd), share_id: chat.share_id });
+  }
+
+  // GET /api/recruit/:id/room — everyone interviewed for this role
+  if (parts[2] === "room" && !parts[3] && method === "GET") {
+    if (!chat.jd) return json({ error: "There is no role yet. Brief FirstRound first." }, 404);
+    const entries = await roomEntries(d, chat, advance);
+    return json({
+      role: { title: chat.jd.title, company: company(chat), location: chat.jd.location, salary: chat.jd.salary, experience: chat.jd.experience },
+      jd_url: `/jd?chat=${chat.id}`,
+      candidates: entries.map((e) => e.card),
+      messages: chat.room?.messages ?? [],
+    });
+  }
+
+  // POST /api/recruit/:id/room/ask — a question over the candidates' interview notes
+  if (parts[2] === "room" && parts[3] === "ask" && method === "POST") {
+    if (!chat.jd) return json({ error: "There is no role yet. Brief FirstRound first." }, 404);
+    const body = (await request.json().catch(() => ({}))) as { text?: string };
+    const question = str(body.text).slice(0, 2000);
+    if (!question) return json({ error: "Ask a question first." }, 400);
+    const entries = await roomEntries(d, chat, advance);
+    const context = roomContext(chat, entries);
+    // The same people with the same notes: no need to send them again.
+    const told = entries.map((e) => `${e.card.id}:${e.brief.length}`).join(",");
+    const fresh = (await d.store.getDoc<RecruitChat>(chat.id)) ?? chat;
+    const room = fresh.room ?? { conversation_id: "", told: "", messages: [] };
+    const ask = async (reopen: boolean) => {
+      if (reopen || !room.conversation_id) {
+        room.conversation_id = await d.eleven.openChat(d.agents.analyst, {});
+        room.told = "";
+      }
+      const history = room.told ? "" : room.messages.slice(-8).map((m) => `${m.from === "bot" ? "YOU" : "HIRING MANAGER"}: ${m.text.slice(0, 500)}`).join("\n");
+      const lead = room.told === told ? "" : `${room.told ? "[The candidates or their notes have changed. Use this version from now on.]\n" : ""}${context}\n\n${history ? `[earlier in this conversation]\n${history}\n[end]\n\n` : ""}`;
+      return (await d.eleven.chat(room.conversation_id, `${lead}${question}`)).trim();
+    };
+    let answer: string;
+    try {
+      answer = await ask(false);
+    } catch {
+      // The conversation may have been idle too long; start a new one with the notes again.
+      answer = await ask(true);
+    }
+    room.told = told;
+    room.messages = [...room.messages, { from: "user" as const, text: question }, { from: "bot" as const, text: answer }].slice(-60);
+    fresh.room = room;
+    await d.store.putDoc(fresh.id, fresh);
+    return json({ answer, candidates: entries.map((e) => e.card) });
+  }
   if (parts[2] === "fit" && method === "GET") {
     const c = find(chat, parts[3]);
     if (!c || !(c.id in chat.shown)) return json({ error: "Candidate not found" }, 404);
@@ -388,6 +641,7 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
     const reply = await say(d, chat, text);
     const message: RecruitMessage = { from: "bot", text: reply.say, action: realise(chat, reply.action) };
     chat.messages.push(message);
+    await ensureShare(d, chat);
     await d.store.putDoc(chat.id, chat);
     return json({ status: "done", reply: message });
   }
@@ -413,6 +667,7 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
     const reply = await say(d, chat, text);
     const message: RecruitMessage = { from: "bot", text: reply.say, action: realise(chat, reply.action) };
     chat.messages.push(message);
+    await ensureShare(d, chat);
     await d.store.putDoc(chat.id, chat);
     return json({ reply: message });
   }

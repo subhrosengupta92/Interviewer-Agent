@@ -7,7 +7,7 @@ mkdirSync(".build/site/assets", { recursive: true });
 mkdirSync("dist", { recursive: true });
 
 await build({
-  entryPoints: ["web/src/setup.ts", "web/src/interview.ts", "web/src/report.ts", "web/src/chat.ts", "web/src/role.ts", "web/src/feedback.ts", "web/src/recruit.ts", "web/src/docs.ts"],
+  entryPoints: ["web/src/setup.ts", "web/src/interview.ts", "web/src/report.ts", "web/src/chat.ts", "web/src/role.ts", "web/src/feedback.ts", "web/src/recruit.ts", "web/src/docs.ts", "web/src/room.ts"],
   outdir: ".build/site/assets",
   bundle: true,
   format: "esm",
@@ -16,7 +16,7 @@ await build({
   target: "es2022",
   logLevel: "warning",
 });
-for (const f of ["index.html", "interview.html", "report.html", "style.css", "chat.html", "role.html", "feedback.html", "chat.css", "recruit.html", "jd.html", "fit.html", "home.html", "home.css"]) cpSync(`web/${f}`, `.build/site/${f}`);
+for (const f of ["index.html", "interview.html", "report.html", "style.css", "chat.html", "role.html", "feedback.html", "chat.css", "recruit.html", "jd.html", "fit.html", "home.html", "home.css", "room.html", "room.css"]) cpSync(`web/${f}`, `.build/site/${f}`);
 cpSync("node_modules/pdfjs-dist/build/pdf.worker.min.mjs", ".build/site/assets/pdf.worker.min.mjs");
 
 const assets = {};

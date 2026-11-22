@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Candidates · FirstRound</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400..800&display=swap">
+<link rel="stylesheet" href="/chat.css">
+<link rel="stylesheet" href="/room.css">
+</head>
+<body class="room">
+<header class="bar">
+  <a class="brand" href="/" aria-label="FirstRound home"><span class="logo" data-logo="lime"></span><div><b>First</b><span>Round</span></div></a>
+  <nav>
+    <a id="jd-link" href="#" target="_blank" rel="noopener">Job description</a>
+    <a id="chat-link" href="/recruit">Back to the chat</a>
+  </nav>
+</header>
+
+<main>
+  <section class="people" aria-labelledby="role-title">
+    <p class="kicker" id="role-company"></p>
+    <h1 id="role-title">Loading…</h1>
+    <div class="pills" id="role-pills"></div>
+    <h2 id="count"></h2>
+    <div id="list" class="list"><p class="wait"><span class="spin"></span>Finding everyone who has interviewed…</p></div>
+  </section>
+
+  <section class="ask" aria-labelledby="ask-h">
+    <h2 id="ask-h">Ask the notes</h2>
+    <p class="sub">Every answer comes from the first-round interview notes.</p>
+    <div class="thread" id="thread" role="log" aria-live="polite"></div>
+    <div class="ideas" id="ideas"></div>
+    <form id="ask-form" autocomplete="off">
+      <input id="q" type="text" placeholder="Who was strongest on deal execution?" aria-label="Ask a question about the candidates" enterkeyhint="send">
+      <button type="submit" id="ask-send" aria-label="Ask"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3 10l12 2-12 2z"/></svg></button>
+    </form>
+  </section>
+</main>
+<script type="module" src="/assets/room.js"></script>
+</body>
+</html>

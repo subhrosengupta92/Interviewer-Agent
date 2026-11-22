@@ -11,6 +11,7 @@ import {
   INTERVIEWER_VOICE_ID,
 } from "../agents/interviewer";
 import { CONCIERGE_MODEL, CONCIERGE_PROMPT } from "../agents/concierge";
+import { ANALYST_MODEL, ANALYST_PROMPT } from "../agents/analyst";
 import { discoveryAgentConfig } from "../agents/discovery";
 import { MATCHER_MODEL, MATCHER_PROMPT } from "../agents/matcher";
 import { PLANNER_MODEL, PLANNER_PROMPT } from "../agents/planner";
@@ -178,7 +179,7 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
 
 const recruiterConfig = textAgent(RECRUITER_PROMPT, RECRUITER_MODEL);
 recruiterConfig.conversation_config.agent.prompt.temperature = 0.4;
-recruiterConfig.conversation_config.agent.prompt.max_tokens = 2000;
+recruiterConfig.conversation_config.agent.prompt.max_tokens = 2600;
 (recruiterConfig.conversation_config.agent as Record<string, unknown>).dynamic_variables = {
   dynamic_variable_placeholders: { recruiter: "a hiring manager", live_pool: "(none yet)" },
 };
@@ -194,7 +195,11 @@ notesConfig.conversation_config.agent.prompt.temperature = 0.4;
 notesConfig.conversation_config.agent.prompt.max_tokens = 1500;
 const notes = await upsertAgent(`${PREFIX}notes-writer`, notesConfig);
 const discovery = await upsertAgent(`${PREFIX}discovery`, discoveryAgentConfig(SERVICE_TIER));
-const ids = { planner, interviewer, scorer, concierge, recruiter, fit, matcher, notes, discovery };
+const analystConfig = textAgent(ANALYST_PROMPT, ANALYST_MODEL);
+analystConfig.conversation_config.agent.prompt.temperature = 0.2;
+analystConfig.conversation_config.agent.prompt.max_tokens = 1200;
+const analyst = await upsertAgent(`${PREFIX}notes-analyst`, analystConfig);
+const ids = { planner, interviewer, scorer, concierge, recruiter, fit, matcher, notes, discovery, analyst };
 writeFileSync(new URL("../agents/ids.json", import.meta.url), JSON.stringify(ids, null, 2) + "\n");
 if (oldTimeTool) await el(`/v1/convai/tools/${oldTimeTool.id}`, "DELETE");
 console.log("Synced", ids, { briefTool });

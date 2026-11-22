@@ -4,6 +4,7 @@ import { extractJson } from "../lib/json";
 import type { Interview, InterviewInput } from "../lib/types";
 import { voiceById } from "../lib/voices";
 import type { Deps } from "./app";
+import { addApplicant, roleFromShare } from "./recruit";
 
 export interface ChatMessage {
   from: "user" | "bot";
@@ -42,6 +43,10 @@ export interface Chat {
   interview_id?: string;
   /** Title and company of the interview in interview_id, for calling again. */
   interview_for?: { title: string; company: string };
+  /** Set when the candidate came from a company's shared job description: the role, and whose it is. */
+  custom?: { role: Role; recruit_id: string; invited_by: string };
+  /** The interview already reported to that company's role screen. */
+  reported?: string;
   /** Something that happened outside the conversation, to tell the chat agent with the next message. */
   untold?: string;
   shown_roles: string[];
@@ -75,9 +80,12 @@ export const roleCard = (r: Role): RoleCard => ({
 /** What candidates may see of a role: everything except the company's budget. */
 export const publicRole = ({ budget: _budget, competencies: _c, ...rest }: Role) => rest;
 
-function entryLine(chat: Pick<Chat, "mode" | "invite_code">): string {
-  const invite = inviteByCode(chat.invite_code);
-  const role = roleById(invite?.role_id);
+/** The role an invited candidate is interviewing for: a company's own job description, or one of the demo invites. */
+const invitedRole = (chat: Pick<Chat, "invite_code" | "custom">) => chat.custom?.role ?? roleById(inviteByCode(chat.invite_code)?.role_id);
+
+function entryLine(chat: Pick<Chat, "mode" | "invite_code" | "custom">): string {
+  const invite = chat.custom ?? inviteByCode(chat.invite_code);
+  const role = invitedRole(chat);
   if (chat.mode === "invite" && invite && role)
     return `The candidate was invited by ${invite.invited_by} to interview for ${role.title} at ${role.company} (role_id ${role.id}). Greet them with that in mind. Their interview is for that role only.`;
   return "The candidate found FirstRound on their own (self-discovery). They have not been invited for any particular role.";
@@ -139,7 +147,7 @@ async function ensureInterview(
   // A candidate without a CV calls back into the interview they already have.
   if (chat.interview_id && chat.interview_for && !chat.cv_text)
     return { interview_id: chat.interview_id, role_id: chat.role_id ?? "", role_title: chat.interview_for.title, company: chat.interview_for.company, created: false };
-  const invited = roleById(inviteByCode(chat.invite_code)?.role_id);
+  const invited = invitedRole(chat);
   // Invited candidates interview for the invited role. Otherwise the matcher's top role wins over the agent's pick,
   // and a repeat call stays on the role already chosen.
   const role = (chat.mode === "invite" ? invited : undefined) ?? roleById(chat.role_id) ?? roleById(chat.ranking?.[0]?.role_id) ?? preferred ?? invited;
@@ -298,10 +306,13 @@ export async function handleChat(
 
   // POST /api/chat — open a chat
   if (parts.length === 1 && method === "POST") {
-    const body = (await request.json().catch(() => ({}))) as { invite?: string };
-    const invite = inviteByCode(body.invite);
-    const role = roleById(invite?.role_id);
-    const base = { mode: invite ? ("invite" as const) : ("self" as const), invite_code: invite?.code };
+    const body = (await request.json().catch(() => ({}))) as { invite?: string; jd?: string };
+    // A company's shared job description works like an invitation for that role.
+    const custom = body.jd ? await roleFromShare(d, body.jd) : null;
+    if (body.jd && !custom) return json({ error: "This job description is no longer available." }, 404);
+    const invite = custom ?? inviteByCode(body.invite);
+    const role = custom?.role ?? roleById(inviteByCode(body.invite)?.role_id);
+    const base = { mode: invite ? ("invite" as const) : ("self" as const), invite_code: custom ? undefined : inviteByCode(body.invite)?.code, ...(custom ? { custom } : {}) };
     const chat: Chat = {
       id: `chat_${d.newId()}`,
       kind: "chat",
@@ -318,6 +329,12 @@ export async function handleChat(
 
   const chat = await d.store.getDoc<Chat>(parts[1] ?? "");
   if (!chat || chat.kind !== "chat") return json({ error: "Chat not found" }, 404);
+  /** Tells the company's role screen about an interview started from its job description. */
+  const report = async () => {
+    if (!chat.custom || !chat.interview_id || chat.reported === chat.interview_id) return;
+    await addApplicant(d, chat.custom.recruit_id, chat.interview_id);
+    chat.reported = chat.interview_id;
+  };
 
   // GET /api/chat/:id — restore after a refresh
   if (parts.length === 2 && method === "GET") {
@@ -361,6 +378,7 @@ export async function handleChat(
     const action = await realise(d, chat, reply.action, createInterview);
     const message: ChatMessage = { from: "bot", text: reply.say, action };
     chat.messages.push(message);
+    await report();
     await d.store.putDoc(chat.id, chat);
     return json({ reply: message });
   }
@@ -372,6 +390,9 @@ export async function handleChat(
       // The chat agent was not part of this, so it is told with the next message why the earlier steps never happened.
       chat.untold = `[The candidate pressed the call button and went straight to a first-round voice interview${chat.role_id ? ` for ${call.role_title} at ${call.company} (role_id ${chat.role_id})` : ", a general one with no particular role"}. Treat every step before the interview as done: do not ask for a LinkedIn link or for them to join${chat.cv_text ? "" : ". They have not shared a CV; do not ask for one now, but if they later want to be matched to roles more closely, they can upload it"}.]`;
       chat.messages.push({ from: "user", text: chat.untold, kind: "event" });
+    }
+    if (call.created || chat.reported !== chat.interview_id) {
+      await report();
       await d.store.putDoc(chat.id, chat);
     }
     const iv = await d.store.get(call.interview_id);

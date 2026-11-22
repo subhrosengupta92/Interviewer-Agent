@@ -6,8 +6,28 @@ const chat = encodeURIComponent(q.get("chat") ?? "");
 const brand = '<div class="brand"><span class="logo" data-logo="lime"></span><div><b>First</b><span>Round</span></div></div>';
 const list = (items: string[]) => `<ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
 
+/** Copies the public link to the job description, or opens the phone's share sheet where there is one. */
+async function share(url: string, title: string, button: HTMLButtonElement) {
+  const label = button.textContent;
+  try {
+    if (navigator.share && matchMedia("(pointer: coarse)").matches) await navigator.share({ title, url });
+    else {
+      await navigator.clipboard.writeText(url);
+      button.textContent = "Link copied";
+    }
+  } catch (e) {
+    if ((e as Error).name === "AbortError") return; // they closed the share sheet
+    // No clipboard access: show the link so it can be copied by hand.
+    prompt("Copy this link", url);
+  }
+  setTimeout(() => (button.textContent = label), 2200);
+}
+
 async function jd() {
-  const r = await api(`/recruit/${chat}/jd`);
+  // The hiring team opens it from their chat; candidates open the shared link, which carries only the public ID.
+  const shared = q.get("id") ?? "";
+  const r = shared ? await api(`/jd/${encodeURIComponent(shared)}`) : await api(`/recruit/${chat}/jd`);
+  const link = `${location.origin}/jd?id=${encodeURIComponent(r.share_id)}`;
   document.title = `${r.title} · Job description`;
   $("#doc").innerHTML = `${brand}
     <div class="eyebrow">Job description${r.company ? ` · ${esc(r.company)}` : ""}</div>
@@ -15,7 +35,15 @@ async function jd() {
     <div class="pills">${[r.location, r.salary, r.experience].filter(Boolean).map((p: string) => `<span>${esc(p)}</span>`).join("")}</div>
     <p style="margin-top:18px">${esc(r.summary)}</p>
     <h2>What you will do</h2>${list(r.responsibilities)}
-    <h2>What we look for</h2>${list(r.requirements)}`;
+    <h2>What we look for</h2>${list(r.requirements)}
+    ${shared ? "" : `<p class="team-note">Only you see this line: <a href="/room?chat=${chat}">everyone who has interviewed for this role</a>.</p>`}
+    <div class="applybar">
+      <button type="button" class="ghost" id="share">Share</button>
+      <a class="primary" href="/chat?jd=${encodeURIComponent(r.share_id)}">Do the first round</a>
+      <span>A ten-minute voice interview, right now.</span>
+    </div>`;
+  const button = $("#share") as HTMLButtonElement;
+  button.addEventListener("click", () => void share(link, `${r.title}${r.company ? ` at ${r.company}` : ""}`, button));
 }
 
 async function fit() {

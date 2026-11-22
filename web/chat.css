@@ -290,3 +290,10 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .file > span:last-child { min-width: 0; }
 /* ".doc" is also the document page's class; its page padding must not reach the small file icon */
 .file .ic.doc { padding: 0; margin: 0; max-width: none; }
+
+/* job description: share it, or do the first round from it */
+.applybar a.primary { background: var(--navy); color: #fff; font-weight: 700; padding: 13px 28px; border-radius: 12px; font-size: 16px; text-decoration: none; }
+.applybar button.ghost { background: #fff; color: var(--navy); border: 1.5px solid var(--navy); padding: 11.5px 24px; }
+.team-note { margin-top: 26px; font-size: 14.5px; color: var(--ink-2); }
+.team-note a { color: var(--navy); font-weight: 600; }
+@media (max-width: 560px) { .applybar span { display: none; } }

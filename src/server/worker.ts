@@ -13,7 +13,7 @@ interface Env {
   TOOL_SECRET?: string;
 }
 
-const PAGES: Record<string, string> = { "/": "/home.html", "/setup": "/index.html", "/interview": "/interview.html", "/report": "/report.html", "/chat": "/chat.html", "/role": "/role.html", "/feedback": "/feedback.html", "/recruit": "/recruit.html", "/jd": "/jd.html", "/fit": "/fit.html" };
+const PAGES: Record<string, string> = { "/": "/home.html", "/setup": "/index.html", "/interview": "/interview.html", "/report": "/report.html", "/chat": "/chat.html", "/role": "/role.html", "/feedback": "/feedback.html", "/recruit": "/recruit.html", "/jd": "/jd.html", "/fit": "/fit.html", "/room": "/room.html" };
 const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
   css: "text/css; charset=utf-8",
