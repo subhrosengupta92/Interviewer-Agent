@@ -4,6 +4,7 @@ import { interviewerBrief, plannerMessage, scorerMessage } from "../src/lib/prom
 import { MemoryStore } from "../src/lib/store";
 import type { Plan } from "../src/lib/types";
 import { type Deps, handleApi } from "../src/server/app";
+import { parseReply } from "../src/server/chat";
 import { timeGuidance, timeUpdate } from "../src/lib/time";
 import { input, report, turns } from "./fixtures";
 
@@ -46,6 +47,20 @@ class FakeEleven implements Eleven {
   async getSession(_agent: string, transport: string) {
     const conversation_id = `conv_${++this.n}`;
     return transport === "websocket" ? { signed_url: "wss://x", conversation_id } : { token: "tok", conversation_id };
+  }
+  chats: { id: string; said: string[] }[] = [];
+  nextReply = '{"say":"Hi! Share your LinkedIn?","action":null}';
+  async openChat() {
+    const id = `chat${++this.n}`;
+    this.chats.push({ id, said: [] });
+    return id;
+  }
+  async chat(id: string, text: string) {
+    this.chats.find((c) => c.id === id)!.said.push(text);
+    return this.nextReply;
+  }
+  async transcribe() {
+    return "hello there";
   }
   async speak(voiceId: string, text: string) {
     return new TextEncoder().encode(`${voiceId}:${text}`).buffer as ArrayBuffer;
@@ -92,7 +107,7 @@ beforeEach(() => {
   d = {
     store: new MemoryStore(),
     eleven,
-    agents: { planner: "P", interviewer: "I", scorer: "S" },
+    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C" },
     toolSecret: "s3cret",
     now: () => clock,
     newId: () => `iv${++n}`,
@@ -246,6 +261,82 @@ describe("language", () => {
   });
 });
 
+describe("parseReply", () => {
+  it("reads plain, fenced, prefixed and repeated JSON replies", () => {
+    expect(parseReply('{"say":"Hi","action":null}')).toEqual({ say: "Hi", action: null });
+    expect(parseReply('```json\n{"say":"Hi {there}","action":{"type":"join"}}\n```')).toEqual({ say: "Hi {there}", action: { type: "join" } });
+    expect(parseReply('Nice start.\n\n{"say":"Nice start. Link?","action":null}').say).toBe("Nice start. Link?");
+    expect(parseReply('{"say":"one","action":null}\n{"say":"two","action":{"type":"ask_cv"}}')).toEqual({ say: "two", action: { type: "ask_cv" } });
+  });
+  it("never shows raw JSON to the candidate when the reply is broken", () => {
+    expect(parseReply('Nice start.\n\n{"say": "Nice sta').say).toBe("Nice start.");
+    expect(parseReply("Just prose.")).toEqual({ say: "Just prose.", action: null });
+    expect(parseReply('{"say": "cut off').say).not.toContain("{");
+  });
+});
+
+describe("candidate chat", () => {
+  const cv = "Meera Krishnan\nSDE-II at a payments gateway\nBuilt the refund retry flow in Java.";
+  it("runs hi → join → CV → interview, creating the interview for the chosen role", async () => {
+    const { body: chat } = await call("POST", "/chat", {});
+    expect(chat.mode).toBe("self");
+    const hi = await call("POST", `/chat/${chat.id}/message`, { text: "Hi" });
+    expect(hi.body.reply.text).toMatch(/LinkedIn/);
+    eleven.nextReply = '{"say":"Join us?","action":{"type":"join"}}';
+    expect((await call("POST", `/chat/${chat.id}/message`, { text: "linkedin.com/in/meera" })).body.reply.action).toEqual({ type: "join" });
+    eleven.nextReply = '```json\n{"say":"Setting up your call.","action":{"type":"start_interview","role_id":"sde2-backend-payments"}}\n```';
+    const r = await call("POST", `/chat/${chat.id}/message`, { text: "x", cv_text: cv });
+    expect(r.body.reply.action).toMatchObject({ type: "start_interview", role_title: "SDE-II, Backend (Payments)", company: "Northwind Pay" });
+    const iv = await d.store.get(r.body.reply.action.interview_id);
+    expect(iv!.input).toMatchObject({ candidate_name: "Meera Krishnan", minutes: 10, hard_bars: { compensation_budget: "Up to ₹42 lakh per year fixed" } });
+    expect(eleven.chats[0].said.at(-1)).toContain("[cv uploaded]");
+  });
+  it("never shows more than three roles, and only real ones", async () => {
+    const { body: chat } = await call("POST", "/chat", {});
+    eleven.nextReply = JSON.stringify({ say: "Here you go", action: { type: "roles", role_ids: ["sre", "nope", "ml-engineer", "sde2-frontend", "product-designer", "sre"] } });
+    const r = await call("POST", `/chat/${chat.id}/message`, { text: "show me roles" });
+    expect(r.body.reply.action.roles.map((x: any) => x.id)).toEqual(["sre", "ml-engineer", "sde2-frontend"]);
+    expect(JSON.stringify(r.body)).not.toMatch(/budget|Up to ₹/);
+  });
+  it("keeps an invited candidate on the invited role", async () => {
+    const { body: chat } = await call("POST", "/chat", { invite: "northwind-sde2" });
+    expect(chat).toMatchObject({ mode: "invite", invite: { role: { id: "sde2-backend-payments" } } });
+    eleven.nextReply = '{"say":"ok","action":{"type":"start_interview","role_id":"product-designer"}}';
+    const r = await call("POST", `/chat/${chat.id}/message`, { text: "x", cv_text: cv });
+    expect(r.body.reply.action.role_id).toBe("sde2-backend-payments");
+  });
+  it("falls back to plain text when the agent does not reply in JSON, and reopens a dropped chat", async () => {
+    const { body: chat } = await call("POST", "/chat", {});
+    eleven.nextReply = "Sure, happy to help!";
+    expect((await call("POST", `/chat/${chat.id}/message`, { text: "hello" })).body.reply).toMatchObject({ text: "Sure, happy to help!", action: null });
+    const original = eleven.chat.bind(eleven);
+    let failed = false;
+    eleven.chat = async (id, text) => {
+      if (!failed) {
+        failed = true;
+        throw new Error("conversation closed");
+      }
+      return original(id, text);
+    };
+    const r = await call("POST", `/chat/${chat.id}/message`, { text: "still there?" });
+    expect(r.status).toBe(200);
+    expect(eleven.chats.at(-1)!.said[0]).toContain("[conversation so far");
+  });
+  it("serves role details without the budget, records applications, and gives candidate-safe feedback", async () => {
+    const role = await call("GET", "/roles/sde2-backend-payments");
+    expect(role.body.title).toBe("SDE-II, Backend (Payments)");
+    expect(JSON.stringify(role.body)).not.toMatch(/budget|competenc/);
+    const { body: chat } = await call("POST", "/chat", {});
+    expect((await call("POST", `/chat/${chat.id}/apply`, { role_id: "sre" })).body.applied).toEqual(["sre"]);
+    const id = await toReady();
+    await toScoring(id);
+    eleven.reply(eleven.lastJob().id, JSON.stringify({ ...report, candidate_feedback: [{ title: "Lead with your part", advice: "Say I, not we.", resource: "Book X" }] }));
+    const f = await call("GET", `/interviews/${id}/feedback`);
+    expect(f.body).toMatchObject({ status: "done", first_name: "Asha", feedback: [{ title: "Lead with your part" }] });
+    expect(JSON.stringify(f.body)).not.toMatch(/overall_score|hard_bars|18 LPA/);
+  });
+});
+
 describe("tool routes", () => {
   it("reject a wrong or missing secret", async () => {
     const id = await toReady();
@@ -280,12 +371,12 @@ describe("scoring", () => {
   });
   it("marks a call under two minutes as too short and lets the candidate start again", async () => {
     const id = await toReady();
-    expect((await toScoring(id, 45)).body.status).toBe("too_short");
+    expect((await toScoring(id, 20)).body.status).toBe("too_short");
     expect((await call("POST", `/interviews/${id}/session`)).status).toBe(200);
   });
   it("scores the latest long-enough attempt", async () => {
     const id = await toReady();
-    await toScoring(id, 45);
+    await toScoring(id, 20);
     const r = await toScoring(id, 900);
     expect(r.body.status).toBe("scoring");
     expect(r.body.attempts).toBe(2);

@@ -10,12 +10,15 @@ import {
   interviewerPrompt,
   INTERVIEWER_VOICE_ID,
 } from "../agents/interviewer";
+import { CONCIERGE_MODEL, CONCIERGE_PROMPT } from "../agents/concierge";
 import { PLANNER_MODEL, PLANNER_PROMPT } from "../agents/planner";
 import { DEFAULT_VOICE, LANGUAGES } from "../src/lib/voices";
 import { SCORER_MODEL, SCORER_PROMPT } from "../agents/scorer";
 import { el } from "./eleven-admin";
 
 const PREFIX = "interviewer-agent/";
+// ElevenLabs rejects "fast" for the Claude models used here (checked 2026-11-22), so this stays "standard".
+const SERVICE_TIER = process.env.SERVICE_TIER ?? "standard";
 // Everything below the file's introduction is given to the Interviewer verbatim.
 const doNotSay = readFileSync(new URL("../agents/do-not-say.md", import.meta.url), "utf8").split("\n").slice(4).join("\n").trim();
 const BASE_URL = (process.env.BASE_URL ?? "").replace(/\/$/, "");
@@ -77,7 +80,7 @@ async function upsertAgent(name: string, body: Record<string, unknown>): Promise
 const textAgent = (prompt: string, llm: string) => ({
   conversation_config: {
     conversation: { text_only: true },
-    agent: { first_message: "", language: "en", prompt: { prompt, llm, temperature: 0, max_tokens: 16000 } },
+    agent: { first_message: "", language: "en", prompt: { prompt, llm, temperature: 0, max_tokens: 16000, service_tier: SERVICE_TIER } },
   },
   platform_settings: { auth: { enable_auth: true } },
 });
@@ -95,6 +98,13 @@ const oldTimeTool = existing.find((t) => t.tool_config.name === "check_time");
 
 const planner = await upsertAgent(`${PREFIX}planner`, textAgent(PLANNER_PROMPT, PLANNER_MODEL));
 const scorer = await upsertAgent(`${PREFIX}scorer`, textAgent(SCORER_PROMPT, SCORER_MODEL));
+const conciergeConfig = textAgent(CONCIERGE_PROMPT, CONCIERGE_MODEL);
+conciergeConfig.conversation_config.agent.prompt.temperature = 0.5;
+conciergeConfig.conversation_config.agent.prompt.max_tokens = 1200;
+(conciergeConfig.conversation_config.agent as Record<string, unknown>).dynamic_variables = {
+  dynamic_variable_placeholders: { entry: "The candidate found FirstRound on their own (self-discovery)." },
+};
+const concierge = await upsertAgent(`${PREFIX}concierge`, conciergeConfig);
 const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
   conversation_config: {
     turn: {
@@ -142,6 +152,7 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
       prompt: {
         prompt: interviewerPrompt(doNotSay),
         llm: INTERVIEWER_MODEL,
+        service_tier: SERVICE_TIER,
         temperature: 0.7,
         tool_ids: [briefTool],
         built_in_tools: {
@@ -162,7 +173,7 @@ const interviewer = await upsertAgent(`${PREFIX}interviewer`, {
   },
 });
 
-const ids = { planner, interviewer, scorer };
+const ids = { planner, interviewer, scorer, concierge };
 writeFileSync(new URL("../agents/ids.json", import.meta.url), JSON.stringify(ids, null, 2) + "\n");
 if (oldTimeTool) await el(`/v1/convai/tools/${oldTimeTool.id}`, "DELETE");
 console.log("Synced", ids, { briefTool });

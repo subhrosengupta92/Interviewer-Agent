@@ -22,6 +22,12 @@ export interface Eleven {
   getSession(agentId: string, transport: Transport): Promise<SessionGrant>;
   /** A short spoken sample, as MP3 bytes. */
   speak(voiceId: string, text: string): Promise<ArrayBuffer>;
+  /** Opens a text chat with an agent and returns its conversation ID. */
+  openChat(agentId: string, variables: Record<string, string>): Promise<string>;
+  /** Sends one message in a text chat and waits for the reply. */
+  chat(conversationId: string, text: string): Promise<string>;
+  /** Speech to text for a recorded voice note. */
+  transcribe(audio: ArrayBuffer, contentType: string): Promise<string>;
 }
 
 const BASE = "https://api.elevenlabs.io";
@@ -98,5 +104,33 @@ export class ElevenClient implements Eleven {
     });
     if (!res.ok) throw new Error(`ElevenLabs ${res.status} on text-to-speech: ${(await res.text()).slice(0, 300)}`);
     return res.arrayBuffer();
+  }
+
+  async openChat(agentId: string, variables: Record<string, string>): Promise<string> {
+    const { conversation_id } = await this.call<{ conversation_id: string }>("/v1/convai/conversations", {
+      method: "POST",
+      body: JSON.stringify({ agent: { type: "persisted", agent_id: agentId }, dynamic_variables: variables }),
+    });
+    return conversation_id;
+  }
+
+  async chat(conversationId: string, text: string): Promise<string> {
+    const turn = await this.call<{ status: string; output?: { text: string }[] }>(
+      `/v1/convai/conversations/${conversationId}/messages`,
+      { method: "POST", body: JSON.stringify({ input: [{ type: "user_message", content: [{ type: "text", text }] }] }) },
+    );
+    const reply = (turn.output ?? []).map((o) => o.text).join("\n").trim();
+    if (!reply) throw new Error(`Chat turn ended with status ${turn.status} and no reply`);
+    return reply;
+  }
+
+  async transcribe(audio: ArrayBuffer, contentType: string): Promise<string> {
+    if (!this.apiKey) throw new MissingKeyError();
+    const form = new FormData();
+    form.append("model_id", "scribe_v2");
+    form.append("file", new Blob([audio], { type: contentType || "audio/webm" }), "voice-note");
+    const res = await this.fetcher(`${BASE}/v1/speech-to-text`, { method: "POST", headers: { "xi-api-key": this.apiKey }, body: form });
+    if (!res.ok) throw new Error(`ElevenLabs ${res.status} on speech-to-text: ${(await res.text()).slice(0, 300)}`);
+    return ((await res.json()) as { text?: string }).text?.trim() ?? "";
   }
 }

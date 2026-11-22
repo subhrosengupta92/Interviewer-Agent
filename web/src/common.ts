@@ -66,3 +66,26 @@ export function fillLanguages(select: HTMLSelectElement, selected?: string) {
   select.innerHTML = LANGUAGES.map((l) => `<option value="${l.code}">${esc(l.label)}</option>`).join("");
   select.value = LANGUAGES.some((l) => l.code === selected) ? selected! : LANGUAGES[0].code;
 }
+
+/** Reads the text out of a PDF (or a plain-text file) in the browser. Returns "" for a scan with no text. */
+export async function readCvText(file: File): Promise<string> {
+  if (!/pdf$/i.test(file.type) && !/\.pdf$/i.test(file.name)) return (await file.text()).trim();
+  const pdfjs = await import("pdfjs-dist");
+  pdfjs.GlobalWorkerOptions.workerSrc = "/assets/pdf.worker.min.mjs";
+  const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages: string[] = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const content = await (await doc.getPage(i)).getTextContent();
+    let text = "";
+    for (const item of content.items as { str?: string; hasEOL?: boolean }[]) text += (item.str ?? "") + (item.hasEOL ? "\n" : " ");
+    pages.push(text.replace(/[ \t]+/g, " ").trim());
+  }
+  return pages.join("\n\n").trim();
+}
+
+export const LOGO = (color: string) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="M10 9.7 12.7 7.9v8.3"/></svg>`;
+
+export function paintLogos() {
+  document.querySelectorAll<HTMLElement>("[data-logo]").forEach((el) => (el.innerHTML = LOGO(el.dataset.logo === "lime" ? "#c8f04a" : "#101828")));
+}

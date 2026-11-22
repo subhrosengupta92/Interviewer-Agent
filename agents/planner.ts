@@ -1,4 +1,5 @@
-export const PLANNER_MODEL = "claude-opus-5-5";
+// Sonnet keeps the wait between CV and call short; switch to an Opus model for the most thorough plans.
+export const PLANNER_MODEL = "claude-sonnet-5-5";
 
 export const PLANNER_PROMPT = `You are a senior hiring manager preparing a first-round interview. You are given a role, a job description, a candidate's CV, the competencies the company wants tested, and the hard bars to check. You write the plan another interviewer will follow in a spoken conversation.
 

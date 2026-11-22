@@ -173,5 +173,12 @@ export function validateReport(raw: unknown, input: InterviewInput): Report {
         return { section: str(o.section), points: strs(o.points) };
       })
       .filter((n) => n.section && n.points.length),
+    candidate_feedback: arr(r.candidate_feedback)
+      .map((n) => {
+        const o = (n ?? {}) as Record<string, unknown>;
+        return { title: str(o.title), advice: str(o.advice), resource: str(o.resource) };
+      })
+      .filter((n) => n.title && n.advice)
+      .slice(0, 5),
   };
 }

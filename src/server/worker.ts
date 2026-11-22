@@ -13,7 +13,7 @@ interface Env {
   TOOL_SECRET?: string;
 }
 
-const PAGES: Record<string, string> = { "/": "/index.html", "/interview": "/interview.html", "/report": "/report.html" };
+const PAGES: Record<string, string> = { "/": "/index.html", "/interview": "/interview.html", "/report": "/report.html", "/chat": "/chat.html", "/role": "/role.html", "/feedback": "/feedback.html" };
 const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
   css: "text/css; charset=utf-8",

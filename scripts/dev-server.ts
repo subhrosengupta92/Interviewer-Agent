@@ -13,7 +13,7 @@ import { handleApi } from "../src/server/app";
 import { remoteStore } from "./remote-store";
 
 const PORT = Number(process.env.PORT ?? 8788);
-const PAGES: Record<string, string> = { "/": "/index.html", "/interview": "/interview.html", "/report": "/report.html" };
+const PAGES: Record<string, string> = { "/": "/index.html", "/interview": "/interview.html", "/report": "/report.html", "/chat": "/chat.html", "/role": "/role.html", "/feedback": "/feedback.html" };
 const TYPES: Record<string, string> = { html: "text/html", css: "text/css", js: "text/javascript", mjs: "text/javascript" };
 const deps = {
   store: remoteStore(),

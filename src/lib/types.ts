@@ -107,6 +107,8 @@ export interface Report {
     quotes: string[];
   }[];
   notes: { section: string; points: string[] }[];
+  /** Five pointers for the candidate. Safe to show them: no scores or verdicts. */
+  candidate_feedback?: { title: string; advice: string; resource: string }[];
 }
 
 export type Status =

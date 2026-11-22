@@ -4,20 +4,23 @@ import { interviewerBrief, plannerMessage, scorerMessage } from "../lib/prompts"
 import { enforceEvidence } from "../lib/quotes";
 import { finaliseScore } from "../lib/scoring";
 import type { Store } from "../lib/store";
-import type { Interview } from "../lib/types";
+import type { Interview, InterviewInput } from "../lib/types";
 import { LANGUAGES, VOICES, languageByCode, previewLine, voiceById } from "../lib/voices";
+import { ROLES, roleById } from "../data/roles";
+import { handleChat, publicRole } from "./chat";
 import { ValidationError, validateInput, validatePlan, validateReport } from "../lib/validate";
 
 export interface Deps {
   store: Store;
   eleven: Eleven;
-  agents: { planner: string; interviewer: string; scorer: string };
+  agents: { planner: string; interviewer: string; scorer: string; concierge: string };
   toolSecret: string;
   now: () => number;
   newId: () => string;
 }
 
-export const MIN_CALL_SECS = 120;
+/** Calls shorter than this are not scored. Kept short so a quick stage demo still gets a report. */
+export const MIN_CALL_SECS = 45;
 const MAX_JOB_ATTEMPTS = 2;
 const JOB_TIMEOUT_MS = 6 * 60_000;
 /** How long after Start before the report page checks whether the call ended without the browser saying so. */
@@ -137,6 +140,29 @@ export async function advance(d: Deps, iv: Interview): Promise<boolean> {
   return false;
 }
 
+/** Stores a new interview and starts planning it. */
+export async function createInterview(d: Deps, input: InterviewInput): Promise<Interview> {
+  const iv: Interview = {
+    id: d.newId(),
+    created_at: d.now(),
+    status: "planning",
+    input,
+    plan: null,
+    report: null,
+    turns: null,
+    job_conversation_id: null,
+    job_started_at: null,
+    job_attempts: 0,
+    started_at: null,
+    conversation_ids: [],
+    duration_secs: null,
+    error: null,
+  };
+  await startPlanning(d, iv);
+  await d.store.put(iv);
+  return iv;
+}
+
 const firstName = (iv: Interview) => iv.input.candidate_name.split(/\s+/)[0];
 
 export async function handleApi(request: Request, d: Deps): Promise<Response> {
@@ -162,28 +188,25 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
       });
     }
 
+    if (parts[0] === "chat") return handleChat(request, parts, d, (input) => createInterview(d, validateInput(input)));
+
+    if (parts[0] === "roles" && method === "GET") {
+      if (!parts[1]) return json({ roles: ROLES.map(publicRole) });
+      const role = roleById(parts[1]);
+      return role ? json(publicRole(role)) : fail(404, "Role not found");
+    }
+
+    if (parts[0] === "transcribe" && method === "POST") {
+      const audio = await request.arrayBuffer();
+      if (audio.byteLength < 1000) return fail(400, "That voice note was empty. Hold the button and speak.");
+      if (audio.byteLength > 8_000_000) return fail(400, "That voice note is too long. Keep it under a minute.");
+      return json({ text: await d.eleven.transcribe(audio, request.headers.get("content-type") ?? "audio/webm") });
+    }
+
     if (parts[0] !== "interviews") return fail(404, "Not found");
 
     if (parts.length === 1 && method === "POST") {
-      const input = validateInput(await request.json().catch(() => null));
-      const iv: Interview = {
-        id: d.newId(),
-        created_at: d.now(),
-        status: "planning",
-        input,
-        plan: null,
-        report: null,
-        turns: null,
-        job_conversation_id: null,
-        job_started_at: null,
-        job_attempts: 0,
-        started_at: null,
-        conversation_ids: [],
-        duration_secs: null,
-        error: null,
-      };
-      await startPlanning(d, iv);
-      await d.store.put(iv);
+      const iv = await createInterview(d, validateInput(await request.json().catch(() => null)));
       return json({ id: iv.id }, 201);
     }
 
@@ -218,6 +241,17 @@ export async function handleApi(request: Request, d: Deps): Promise<Response> {
         interviewer_name: voice.name,
         voice_id: voice.id,
         language: languageByCode(iv.input.language).code,
+      });
+    }
+
+    if (action === "feedback" && method === "GET") {
+      // Advance here too, so the candidate's chat can wait on this without the manager's page being open.
+      if (await advance(d, iv)) await d.store.put(iv);
+      return json({
+        status: iv.status,
+        first_name: firstName(iv),
+        role_title: iv.input.role_title,
+        feedback: iv.status === "done" ? (iv.report?.candidate_feedback ?? []) : null,
       });
     }
 

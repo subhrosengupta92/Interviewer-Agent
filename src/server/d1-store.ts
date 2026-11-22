@@ -17,4 +17,18 @@ export class D1Store implements Store {
       .bind(interview.id, interview.created_at, JSON.stringify(interview))
       .run();
   }
+
+  async getDoc<T>(id: string): Promise<T | null> {
+    const row = await this.db.prepare("SELECT data FROM interviews WHERE id = ?").bind(id).first<{ data: string }>();
+    return row ? (JSON.parse(row.data) as T) : null;
+  }
+
+  async putDoc(id: string, doc: unknown): Promise<void> {
+    await this.db
+      .prepare(
+        "INSERT INTO interviews (id, created_at, data) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
+      )
+      .bind(id, Date.now(), JSON.stringify(doc))
+      .run();
+  }
 }

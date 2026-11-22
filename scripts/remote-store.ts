@@ -25,6 +25,16 @@ export function remoteStore(): Store {
       const rows = await d1("SELECT data FROM interviews WHERE id = ?", [id]);
       return rows[0] ? (JSON.parse(rows[0].data) as Interview) : null;
     },
+    async getDoc<T>(id: string) {
+      const rows = await d1("SELECT data FROM interviews WHERE id = ?", [id]);
+      return rows[0] ? (JSON.parse(rows[0].data) as T) : null;
+    },
+    async putDoc(id, doc) {
+      await d1(
+        "INSERT INTO interviews (id, created_at, data) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
+        [id, Date.now(), JSON.stringify(doc)],
+      );
+    },
     async put(iv) {
       await d1(
         "INSERT INTO interviews (id, created_at, data) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
