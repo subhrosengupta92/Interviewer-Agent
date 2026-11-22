@@ -46,6 +46,7 @@ const roleOf = (id: string) => roles.find((r) => r.interviews.some((i) => i.id =
 const picked = () => roles.flatMap((r) => r.interviews.filter((i) => chosen.has(i.id)));
 
 function line(kind: "q" | "a", text: string) {
+  $(".talk").classList.add("started");
   const el = document.createElement("div");
   el.className = kind;
   el.textContent = text;
