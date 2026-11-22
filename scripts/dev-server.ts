@@ -13,7 +13,7 @@ import { handleApi } from "../src/server/app";
 import { remoteStore } from "./remote-store";
 
 const PORT = Number(process.env.PORT ?? 8788);
-const PAGES: Record<string, string> = { "/": "/index.html", "/interview": "/interview.html", "/report": "/report.html", "/chat": "/chat.html", "/role": "/role.html", "/feedback": "/feedback.html", "/recruit": "/recruit.html", "/jd": "/jd.html", "/fit": "/fit.html" };
+const PAGES: Record<string, string> = { "/setup": "/index.html", "/interview": "/interview.html", "/report": "/report.html", "/chat": "/chat.html", "/role": "/role.html", "/feedback": "/feedback.html", "/recruit": "/recruit.html", "/jd": "/jd.html", "/fit": "/fit.html" };
 const TYPES: Record<string, string> = { html: "text/html", css: "text/css", js: "text/javascript", mjs: "text/javascript" };
 const deps = {
   store: remoteStore(),
@@ -39,6 +39,10 @@ createServer(async (req, res) => {
     );
     res.writeHead(out.status, Object.fromEntries(out.headers));
     res.end(await out.text());
+    return;
+  }
+  if (url.pathname === "/" || url.pathname === "/index.html") {
+    res.writeHead(302, { location: "/chat" }).end();
     return;
   }
   const path = PAGES[url.pathname.replace(/\/$/, "") || "/"] ?? url.pathname;
