@@ -87,5 +87,27 @@ export const LOGO = (color: string) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.6"/><path d="M10 9.7 12.7 7.9v8.3"/></svg>`;
 
 export function paintLogos() {
+  fitPhone();
   document.querySelectorAll<HTMLElement>("[data-logo]").forEach((el) => (el.innerHTML = LOGO(el.dataset.logo === "lime" ? "#c8f04a" : "#101828")));
+}
+
+/** Scales the whole phone to fit the window height, so it keeps its proportions on any screen. */
+export function fitPhone() {
+  const phone = document.querySelector<HTMLElement>(".phone");
+  const wrap = document.querySelector<HTMLElement>(".phone-wrap");
+  if (!phone || !wrap) return;
+  const apply = () => {
+    if (window.innerWidth <= 480) {
+      phone.style.transform = "";
+      wrap.style.height = "";
+      return;
+    }
+    const full = 840; // the phone's designed height in CSS pixels
+    const chrome = (document.querySelector<HTMLElement>(".topbar")?.offsetHeight ?? 70) + (document.querySelector<HTMLElement>(".foot")?.offsetHeight ?? 40) + 12;
+    const scale = Math.max(0.55, Math.min(1, (window.innerHeight - chrome) / full));
+    phone.style.transform = `scale(${scale})`;
+    wrap.style.height = `${Math.round(full * scale)}px`;
+  };
+  apply();
+  window.addEventListener("resize", apply);
 }
