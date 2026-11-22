@@ -31,7 +31,8 @@ async function fit() {
     <ol class="points">${r.pointers
       .map((p: string) => {
         const check = /^(to check|watch)\s*:/i.test(p);
-        return `<li class="${check ? "check" : ""}">${esc(p.replace(/^(to check|watch)\s*:\s*/i, ""))}</li>`;
+        const text = p.replace(/^(to check|watch)\s*:\s*/i, "");
+        return `<li class="${check ? "check" : ""}">${esc(text.charAt(0).toUpperCase() + text.slice(1))}</li>`;
       })
       .join("")}</ol>`;
 }
