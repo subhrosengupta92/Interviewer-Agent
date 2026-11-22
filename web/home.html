@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<meta name="description" content="FirstRound is an agent factory for hiring. Brief it once: agents write the role, interview every candidate by voice and bring you notes you can question.">
-<title>FirstRound: the hiring factory</title>
+<meta name="description" content="FirstRound is an agentic hiring factory. Agents onboard candidates, assess CVs, run the first round by voice, write the takeaways and answer your questions.">
+<meta name="theme-color" content="#070a10">
+<title>FirstRound: Agentic Hiring Factory</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400..800&display=swap">
 <link rel="stylesheet" href="/chat.css">
 <link rel="stylesheet" href="/home.css">
 </head>
@@ -23,100 +24,70 @@
 
 <header class="nav">
   <a class="brand" href="/" aria-label="FirstRound home"><span class="logo"><svg stroke="#c8f04a"><use href="#mark"/></svg></span><div><b>First</b><span>Round</span></div></a>
-  <nav aria-label="Open the app">
-    <a class="go small" href="/recruit">Start hiring</a>
-  </nav>
+  <a class="go small" href="/recruit">Start hiring</a>
 </header>
 
 <main>
   <section class="hero">
-    <div class="pitch">
-      <h1>The hiring factory.</h1>
-      <p class="lede">An agent factory for hiring. Brief it once. Agents write the role, interview every candidate on the subject, and bring you notes you can question.</p>
-      <div class="cta">
-        <a class="go" href="/recruit">Start hiring</a>
-        <span>No account needed.</span>
-      </div>
+    <p class="prompt" aria-hidden="true"><span class="ps">$</span> firstround hire <span class="arg">"Principal, Corporate Development"</span><span class="cursor"></span></p>
+    <h1>Agentic Hiring Factory</h1>
+    <p class="lede">Agents onboard candidates, assess CVs, run the first round, write the takeaways and answer your questions.</p>
+    <div class="cta">
+      <a class="go" href="/recruit">Start hiring</a>
+      <span>No account needed.</span>
     </div>
 
-    <div class="art">
-      <span class="shape disc" aria-hidden="true"></span>
-      <span class="shape tile" aria-hidden="true"></span>
-      <svg class="shape spark s1" aria-hidden="true"><use href="#spark"/></svg>
-      <svg class="shape spark s2" aria-hidden="true"><use href="#spark"/></svg>
-      <div class="sticker talk" aria-hidden="true"><span class="bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>On a call with Riya</div>
-      <div class="sticker score" aria-hidden="true"><b>8.7</b><span>first-round<br>score</span></div>
-      <div class="sticker done" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>Already interviewed</div>
-    <a class="mock lead" href="/recruit" aria-label="Start hiring in the app">
-      <div class="phone">
-        <div class="island"></div>
-        <div class="screen">
-          <div class="status"><span>9:41</span><span class="sig"><i style="height:5px"></i><i style="height:7px"></i><i style="height:9px"></i><i style="height:11px"></i><span class="batt"><i></i></span></span></div>
-          <div class="chat-head">
-            <span class="back" aria-hidden="true">‹</span>
-            <span class="avatar"><svg stroke="#101828"><use href="#mark"/></svg></span>
-            <div class="who"><div class="n">FirstRound <svg><use href="#tick"/></svg></div><div class="s">online</div></div>
-          </div>
-          <div class="msgs">
-            <div class="row out"><div class="bubble"><div class="txt">Hiring a Principal for Corporate Development. Mumbai, 8 to 12 years, must have closed deals.</div><div class="meta">9:38</div></div></div>
-            <div class="row in"><div class="bubble"><div class="txt">I prioritised people who have run a deal end to end and can join within two months.</div>
-              <div class="cards">
-                <div class="card cand"><div class="top"><span class="pic">RK</span><div><div class="ti">Rhea Kapoor</div><div class="su">VP, Corporate Development at a listed consumer company</div></div><div class="score">8.7<small>first round</small></div></div>
-                  <div class="why">Led two acquisitions from sourcing to integration.</div>
-                  <div class="tags"><span>Mumbai</span><span>Notice 60 days</span></div>
-                  <div class="two"><span class="btn light">Why they fit</span><span class="btn">Connect</span></div></div>
-                <div class="card cand"><div class="top"><span class="pic">KA</span><div><div class="ti">Kabir Anand</div><div class="su">Principal at a growth-stage venture fund</div></div><div class="score">8.5<small>first round</small></div></div>
-                  <div class="why">Ten years of diligence and board work across SaaS.</div>
-                  <div class="tags"><span>Mumbai</span><span>Notice 30 days</span></div>
-                  <div class="two"><span class="btn light">Why they fit</span><span class="btn">Connect</span></div></div>
-                <div class="card cand"><div class="top"><span class="pic">ZM</span><div><div class="ti">Zoya Merchant</div><div class="su">Director, Investment Banking (Technology M&amp;A)</div></div><div class="score">8.0<small>first round</small></div></div>
-                  <div class="why">Sell-side M&amp;A and valuation, nine years.</div></div>
-              </div>
-            </div></div>
-          </div>
-        </div>
+    <div class="term" id="factory" role="img" aria-label="Five agents in a line: onboarding, CV assessment, first round, takeaways and analytics. Candidates move through them one stage at a time.">
+      <div class="term-bar"><i></i><i></i><i></i><span>firstround · hiring-factory · 5 agents running</span></div>
+      <div class="term-body">
+        <ol class="stations">
+          <li class="station" data-stage="onboard">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 19v-1.5a3.5 3.5 0 0 0-3.5-3.5H7.5A3.5 3.5 0 0 0 4 17.5V19"/><circle cx="9.7" cy="7.5" r="3.3"/><path d="M18.5 8v6M15.5 11h6"/></svg>
+            <span class="name"><span class="full">Onboarding</span><span class="short">Onboard</span></span>
+            <span class="does">Greets every candidate</span>
+            <span class="count" aria-hidden="true">0</span>
+          </li>
+          <li class="station" data-stage="cv">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4"/><circle cx="11.5" cy="13.5" r="2.4"/><path d="m13.3 15.3 2.2 2.2"/></svg>
+            <span class="name"><span class="full">CV assessment</span><span class="short">CV</span></span>
+            <span class="does">Reads the CV against the role</span>
+            <span class="count" aria-hidden="true">0</span>
+          </li>
+          <li class="station" data-stage="round-1">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="6" height="11.5" rx="3"/><path d="M5 10.5v.5a7 7 0 0 0 14 0v-.5M12 18v3.5"/></svg>
+            <span class="name"><span class="full">First round</span><span class="short">Round 1</span></span>
+            <span class="does">Interviews by voice, on the subject</span>
+            <span class="count" aria-hidden="true">0</span>
+          </li>
+          <li class="station" data-stage="takeaways">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="m8.5 9 1.5 1.500L12.5 8M8.5 15l1.5 1.5 2.5-2.500M15 9.500h1.500M15 15.500h1.5"/></svg>
+            <span class="name"><span class="full">Takeaways</span><span class="short">Notes</span></span>
+            <span class="does">Scores it and writes it up</span>
+            <span class="count" aria-hidden="true">0</span>
+          </li>
+          <li class="station" data-stage="analytics">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6"/></svg>
+            <span class="name"><span class="full">Analytics</span><span class="short">Analytics</span></span>
+            <span class="does">Answers your questions</span>
+            <span class="count" aria-hidden="true">0</span>
+          </li>
+        </ol>
+        <div class="belt" aria-hidden="true"><div class="chips" id="chips"></div></div>
+        <div class="log" id="log" aria-hidden="true"></div>
       </div>
-    </a>
-    </div>
-  </section>
-
-  <section class="flow" aria-labelledby="flow-h">
-    <div class="wrap">
-      <h2 id="flow-h">“One brief in. Interviewed candidates out.”</h2>
-      <ol class="line">
-        <li class="you"><span class="who">You</span><span class="does">Say who you need</span></li>
-        <li class="agent a1">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.2c1.1.4 2.3.6 3.6.6a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.3.2 2.5.6 3.6a1 1 0 0 1-.2 1z" fill="currentColor" stroke="none"/></svg>
-          <span class="who">Brief agent</span><span class="does">Takes the brief on a five-minute call</span></li>
-        <li class="agent a2">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/></svg>
-          <span class="who">Role agent</span><span class="does">Writes the job description and what to test</span></li>
-        <li class="agent a3">
-          <span class="feed">Candidates, from your link</span>
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2.5" width="6" height="11.5" rx="3"/><path d="M5 10.500v.5a7 7 0 0 0 14 0v-.5M12 18v3.5"/></svg>
-          <span class="who">Interview agent</span><span class="does">Runs every first round by voice, on the subject</span></li>
-        <li class="agent a4">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="m8.5 9 1.5 1.500L12.5 8M8.5 15l1.5 1.5 2.5-2.500M15 9.500h1.500M15 15.500h1.5"/></svg>
-          <span class="who">Notes agent</span><span class="does">Scores each interview and writes it up</span></li>
-        <li class="agent a5">
-          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H10l-4 3.500V16H4z"/><path d="M10.2 9.300a1.9 1.9 0 1 1 2.6 1.700c-.5.3-.8.6-.8 1.200M12 13.900v.100"/></svg>
-          <span class="who">Answer agent</span><span class="does">Answers your questions from the notes</span></li>
-        <li class="you"><span class="who">You</span><span class="does">Pick who to meet</span></li>
-      </ol>
-      <div class="cta centre"><a class="go" href="/recruit">Start hiring</a></div>
     </div>
   </section>
 
   <section class="story" aria-label="Why we built FirstRound">
     <div class="wrap">
+      <p class="comment" aria-hidden="true"># why this exists</p>
       <div class="hours" aria-hidden="true">
         <div class="grid"></div>
         <p>600 hours. One square is ten.</p>
       </div>
-      <svg class="shape spark s3" aria-hidden="true"><use href="#spark"/></svg>
       <blockquote>
         <p>“I took 30+ first rounds a month. That was 30 to 40 hours.”</p>
-        <p>“Across the team, over <span class="mark">600 hours<svg viewBox="0 0 200 12" preserveAspectRatio="none" aria-hidden="true"><path d="M2 8c22-7 38 5 60-1s38-6 62 0 46 4 74-2" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/></svg></span>.”</p>
+        <p>“Across the team, over <span class="mark">600 hours</span>.”</p>
         <p>“We handed it to Talent Acquisition. But TAs are generalists. They couldn't take subject-specific interviews.”</p>
       </blockquote>
       <p class="answer">FirstRound can.</p>
@@ -126,6 +97,7 @@
 
   <section class="steps" aria-labelledby="steps-h">
     <div class="wrap">
+      <p class="comment" aria-hidden="true"># what you see</p>
       <h2 id="steps-h">“A call, a link, a shortlist.”</h2>
       <ol>
         <li>
@@ -196,16 +168,109 @@
           <a class="try" href="/recruit">Ask the notes</a>
         </li>
       </ol>
-      <div class="cta centre">
-        <a class="go" href="/recruit">Start hiring</a>
-      </div>
+      <div class="cta centre"><a class="go" href="/recruit">Start hiring</a></div>
     </div>
   </section>
 </main>
 
 <footer class="footer">
-  <p class="candidates">“An agent factory for hiring.”</p>
+  <p class="prompt"><span class="ps">$</span> firstround hire <span class="cursor"></span></p>
   <a class="go small" href="/recruit">Start hiring</a>
 </footer>
+
+<script>
+// The factory animation: candidates move through the five agents, one stage at a time, and each move is logged.
+(() => {
+  const root = document.getElementById("factory");
+  const stations = [...root.querySelectorAll(".station")];
+  const chips = document.getElementById("chips");
+  const log = document.getElementById("log");
+  const people = [
+    { n: "Rhea Kapoor", cv: "M&A, valuation, integration", fit: 91, mins: "09:41", score: "8.7", strong: "deal execution", q: "who is strongest on deals?" },
+    { n: "Arjun Mehta", cv: "corp dev, one deal closed", fit: 84, mins: "10:12", score: "8.2", strong: "financial modelling", q: "who models best?" },
+    { n: "Kabir Anand", cv: "growth investing, board work", fit: 88, mins: "08:56", score: "8.5", strong: "diligence", q: "who has sat on boards?" },
+    { n: "Zoya Merchant", cv: "sell-side M&A, 9 years", fit: 79, mins: "11:03", score: "8.0", strong: "negotiation", q: "who can join in 30 days?" },
+    { n: "Dev Malhotra", cv: "strategy, investor relations", fit: 76, mins: "09:20", score: "8.3", strong: "board reporting", q: "what should round two probe?" },
+  ];
+  const first = (p) => p.n.split(" ")[0];
+  const line = [
+    (p) => `${p.n} joined from the job link`,
+    (p) => `${p.n} · ${p.cv} · fit ${p.fit}`,
+    (p) => `${p.n} · voice call ${p.mins} · interviewed on the subject`,
+    (p) => `${p.n} · ${p.score}/10 · strong on ${p.strong}`,
+    (p) => `ask> ${p.q}  <b>${first(p)}</b>`,
+  ];
+  const tags = ["onboard", "cv", "round-1", "takeaways", "analytics"];
+  const state = people.map((p, i) => {
+    const el = document.createElement("span");
+    el.className = "chip-p";
+    el.textContent = p.n.split(" ").map((w) => w[0]).join("");
+    chips.append(el);
+    return { p, el, stage: -1, wait: i * 2 };
+  });
+
+  function place() {
+    const box = chips.getBoundingClientRect();
+    const at = stations.map(() => 0);
+    for (const s of state) {
+      if (s.stage < 0 || s.stage > 4) {
+        s.el.style.opacity = "0";
+        s.el.style.transform = `translate(${s.stage < 0 ? -30 : box.width + 10}px, -50%)`;
+        continue;
+      }
+      const r = stations[s.stage].getBoundingClientRect();
+      const slot = at[s.stage]++;
+      s.el.style.opacity = "1";
+      s.el.style.background = `var(--c${s.stage})`;
+      s.el.style.transform = `translate(${r.left - box.left + r.width / 2 - s.el.offsetWidth / 2 + slot * 9 - 4}px, -50%)`;
+    }
+  }
+
+  function say(stage, p) {
+    const row = document.createElement("div");
+    row.innerHTML = `<span class="tag t${stage}">[${tags[stage]}]</span><span class="msg">${line[stage](p)}</span>`;
+    log.append(row);
+    while (log.children.length > 6) log.firstElementChild.remove();
+  }
+
+  function step() {
+    // Whoever has waited longest moves on; people who have finished come round again as new candidates.
+    for (const s of state) s.wait -= 1;
+    const next = state.filter((s) => s.wait <= 0).sort((a, b) => a.wait - b.wait)[0];
+    if (!next) return;
+    next.stage += 1;
+    next.wait = 2 + (next.stage === 2 ? 2 : 0); // the interview itself takes longest
+    if (next.stage > 4) {
+      next.stage = -1;
+      next.wait = 3;
+    } else {
+      const st = stations[next.stage];
+      const count = st.querySelector(".count");
+      count.textContent = String(Number(count.textContent) + 1);
+      st.classList.remove("hit");
+      void st.offsetWidth; // restart the pulse
+      st.classList.add("hit");
+      say(next.stage, next.p);
+    }
+    place();
+  }
+
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    // No motion: show one candidate at each agent, and the line each agent would write.
+    state.forEach((s, i) => {
+      s.stage = i;
+      say(i, s.p);
+      stations[i].querySelector(".count").textContent = String(12 - i * 2);
+    });
+    place();
+  } else {
+    place();
+    for (let i = 0; i < 4; i++) step();
+    setInterval(step, 850);
+  }
+  addEventListener("resize", place);
+  document.fonts?.ready.then(place);
+})();
+</script>
 </body>
 </html>
