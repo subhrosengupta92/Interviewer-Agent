@@ -16,7 +16,7 @@ await build({
   target: "es2022",
   logLevel: "warning",
 });
-for (const f of ["index.html", "interview.html", "report.html", "style.css", "chat.html", "role.html", "feedback.html", "chat.css", "recruit.html", "jd.html", "fit.html"]) cpSync(`web/${f}`, `.build/site/${f}`);
+for (const f of ["index.html", "interview.html", "report.html", "style.css", "chat.html", "role.html", "feedback.html", "chat.css", "recruit.html", "jd.html", "fit.html", "home.html", "home.css"]) cpSync(`web/${f}`, `.build/site/${f}`);
 cpSync("node_modules/pdfjs-dist/build/pdf.worker.min.mjs", ".build/site/assets/pdf.worker.min.mjs");
 
 const assets = {};

@@ -13,7 +13,7 @@ interface Env {
   TOOL_SECRET?: string;
 }
 
-const PAGES: Record<string, string> = { "/setup": "/index.html", "/interview": "/interview.html", "/report": "/report.html", "/chat": "/chat.html", "/role": "/role.html", "/feedback": "/feedback.html", "/recruit": "/recruit.html", "/jd": "/jd.html", "/fit": "/fit.html" };
+const PAGES: Record<string, string> = { "/": "/home.html", "/setup": "/index.html", "/interview": "/interview.html", "/report": "/report.html", "/chat": "/chat.html", "/role": "/role.html", "/feedback": "/feedback.html", "/recruit": "/recruit.html", "/jd": "/jd.html", "/fit": "/fit.html" };
 const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
   css: "text/css; charset=utf-8",
@@ -48,10 +48,6 @@ export default {
       });
       if (cacheable && response.ok) ctx.waitUntil(cache.put(request, response.clone()));
       return response;
-    }
-    // The home page is the candidate chat (self discovery). The older set-up form lives at /setup.
-    if (url.pathname === "/" || url.pathname === "/index.html") {
-      return new Response(null, { status: 302, headers: { location: "/chat", "cache-control": "no-cache, must-revalidate", ...SECURITY } });
     }
     const path = PAGES[url.pathname.replace(/\/$/, "") || "/"] ?? url.pathname;
     const body = (ASSETS as Record<string, string>)[path];
