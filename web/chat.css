@@ -229,3 +229,11 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .head-icons { align-items: center; }
 .head-icons button { color: #fff; display: grid; place-items: center; width: 34px; height: 34px; margin: -7px; border-radius: 50%; }
 .head-icons button:hover { background: rgba(255, 255, 255, .12); }
+
+/* interview notes under the fit pointers */
+.notes { margin-top: 44px; padding: 22px 24px 8px; border-radius: 16px; background: #f7f6f1; border: 1px solid var(--line); }
+.notes-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; align-items: baseline; margin-bottom: 4px; }
+.notes-meta { font-size: 13px; color: var(--ink-2); }
+.notes h3 { font-size: 16px; margin: 20px 0 6px; letter-spacing: -0.005em; }
+.notes ul { padding-left: 18px; margin: 0 0 6px; }
+.notes li { font-size: 15.5px; line-height: 1.5; margin-bottom: 4px; color: #2a3140; }

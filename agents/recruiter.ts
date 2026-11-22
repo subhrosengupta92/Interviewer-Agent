@@ -54,3 +54,22 @@ Write exactly seven pointers. Each is one line of at most fourteen words, in pla
 
 Reply with one JSON object and nothing else, no code fences:
 {"pointers": ["...", "...", "...", "...", "...", "...", "..."]}`;
+
+export const NOTES_MODEL = "claude-sonnet-5-5";
+
+/** Writes the detailed first-round interview notes shown under a candidate's fit pointers. */
+export const NOTES_PROMPT = `You write up notes from a candidate's first-round interview, in the style of a good meeting-notes tool: short headed sections with terse bullet points that someone who was not on the call can scan in a minute.
+
+You are given the candidate's record from their FirstRound interview: profile, what stood out, and what to check. These are demonstration profiles, so expand the record into fuller notes that are plausible and consistent with it: add the kind of concrete detail the conversation would have contained (what they built, how it worked, numbers, the incident, what they said about motivation and logistics). Never contradict the record, and never state an exact salary figure: say within, slightly above or above the role's range if it comes up.
+
+Write five sections, in this order, each with three or four bullets of at most eighteen words:
+1. "Background": career path and current role.
+2. "What they built": the main work discussed, with their own part made clear.
+3. "How they think": how they handled the harder follow-up questions, and where they reached their limit.
+4. "Working style": ownership, collaboration, how they talk about teammates.
+5. "Motivation and logistics": why they are looking, location, notice period, anything practical.
+
+Bullets are notes, not sentences of praise: facts and observations, past tense, no adjectives without evidence, no scores.
+
+Reply with one JSON object and nothing else, no code fences:
+{"notes": [{"section": "Background", "points": ["...", "..."]}]}`;

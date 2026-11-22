@@ -15,6 +15,11 @@ export interface JobDescription {
   requirements: string[];
 }
 
+export interface NoteSection {
+  section: string;
+  points: string[];
+}
+
 export interface CandidateCard {
   id: string;
   name: string;
@@ -49,6 +54,8 @@ export interface RecruitChat {
   fits: Record<string, string[]>;
   /** Candidates shown so far, with the one-line reason given in the chat. */
   shown: Record<string, string>;
+  /** Detailed first-round interview notes per candidate, written on demand and kept. */
+  notes?: Record<string, NoteSection[]>;
   learned: string[];
   rounds: number;
 }
@@ -162,6 +169,28 @@ async function fitPointers(d: Deps, chat: RecruitChat, c: PoolCandidate): Promis
   }
 }
 
+/** Detailed notes from the candidate's first round; falls back to the bare record if the writer fails. */
+async function interviewNotes(d: Deps, c: PoolCandidate): Promise<NoteSection[]> {
+  const fallback: NoteSection[] = [
+    { section: "Background", points: [`${c.headline}; ${c.years} years of experience`, `Works with ${c.skills.join(", ")}`] },
+    { section: "What stood out", points: c.strengths },
+    { section: "To check", points: c.watch },
+    { section: "Logistics", points: [`Based in ${c.location}`, `Notice period ${c.notice}`] },
+  ];
+  try {
+    const conversation = await d.eleven.openChat(d.agents.notes, {});
+    const raw = await d.eleven.chat(conversation, `Candidate record:\n${JSON.stringify(c)}`);
+    const sections = (extractJson<{ notes?: unknown }>(raw).notes as unknown[] | undefined) ?? [];
+    const notes = (Array.isArray(sections) ? sections : [])
+      .map((n) => n as Record<string, unknown>)
+      .map((n) => ({ section: str(n.section), points: strs(n.points) }))
+      .filter((n) => n.section && n.points.length);
+    return notes.length ? notes : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function handleRecruit(request: Request, parts: string[], d: Deps): Promise<Response> {
   const method = request.method;
 
@@ -195,17 +224,25 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
   if (parts[2] === "fit" && method === "GET") {
     const c = candidateById(parts[3]);
     if (!c || !(c.id in chat.shown)) return json({ error: "Candidate not found" }, 404);
-    if (!chat.fits[c.id]) {
-      chat.fits[c.id] = await fitPointers(d, chat, c);
-      // Several documents may be written at once; re-read so one save does not undo another.
+    chat.notes ??= {};
+    if (!chat.fits[c.id] || !chat.notes[c.id]) {
+      // Both documents are written at the same time, so the page opens in one wait.
+      const [pointers, notes] = await Promise.all([
+        chat.fits[c.id] ?? fitPointers(d, chat, c),
+        chat.notes[c.id] ?? interviewNotes(d, c),
+      ]);
+      // Several pages may be written at once; re-read so one save does not undo another.
       const fresh = (await d.store.getDoc<RecruitChat>(chat.id)) ?? chat;
-      fresh.fits[c.id] = chat.fits[c.id];
+      fresh.fits[c.id] = chat.fits[c.id] = pointers;
+      fresh.notes = { ...(fresh.notes ?? {}), [c.id]: notes };
+      chat.notes[c.id] = notes;
       await d.store.putDoc(chat.id, fresh);
     }
     return json({
       role: chat.jd ? `${chat.jd.title}${chat.jd.company ? ` · ${chat.jd.company}` : ""}` : "",
       candidate: { name: c.name, headline: c.headline, years: c.years, location: c.location, notice: c.notice, score: c.score, interviewed_for: c.interviewed_for, skills: c.skills },
       pointers: chat.fits[c.id],
+      notes: chat.notes[c.id],
     });
   }
 

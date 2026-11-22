@@ -34,7 +34,15 @@ async function fit() {
         const text = p.replace(/^(to check|watch)\s*:\s*/i, "");
         return `<li class="${check ? "check" : ""}">${esc(text.charAt(0).toUpperCase() + text.slice(1))}</li>`;
       })
-      .join("")}</ol>`;
+      .join("")}</ol>
+    ${
+      (r.notes ?? []).length
+        ? `<section class="notes"><div class="notes-head"><span class="eyebrow">First-round interview · notes</span><span class="notes-meta">${esc(c.interviewed_for)} · voice call with FirstRound</span></div>
+            ${(r.notes as { section: string; points: string[] }[])
+              .map((n) => `<h3>${esc(n.section)}</h3><ul>${n.points.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`)
+              .join("")}</section>`
+        : ""
+    }`;
 }
 
 paintLogos();

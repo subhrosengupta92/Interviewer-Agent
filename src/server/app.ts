@@ -14,7 +14,7 @@ import { ValidationError, validateInput, validatePlan, validateReport } from "..
 export interface Deps {
   store: Store;
   eleven: Eleven;
-  agents: { planner: string; interviewer: string; scorer: string; concierge: string; recruiter: string; fit: string; matcher: string };
+  agents: { planner: string; interviewer: string; scorer: string; concierge: string; recruiter: string; fit: string; matcher: string; notes: string };
   toolSecret: string;
   now: () => number;
   newId: () => string;

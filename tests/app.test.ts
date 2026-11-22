@@ -107,7 +107,7 @@ beforeEach(() => {
   d = {
     store: new MemoryStore(),
     eleven,
-    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C", recruiter: "R", fit: "F", matcher: "M" },
+    agents: { planner: "P", interviewer: "I", scorer: "S", concierge: "C", recruiter: "R", fit: "F", matcher: "M", notes: "N" },
     toolSecret: "s3cret",
     now: () => clock,
     newId: () => `iv${++n}`,
@@ -381,13 +381,16 @@ describe("recruiter chat", () => {
     expect(c.body.reply.action).toMatchObject({ learned: ["payments is a must"], round: 1 });
     expect(JSON.stringify(c.body)).not.toMatch(/expects|₹38 LPA/);
     // The seven pointers are written on first open, topped up from the interview record, then kept.
-    eleven.nextReply = JSON.stringify({ pointers: ["Five years in payments", "Designed refund retries"] });
+    eleven.nextReply = JSON.stringify({ pointers: ["Five years in payments", "Designed refund retries"], notes: [{ section: "Background", points: ["Five years at a payments gateway"] }] });
     const fit = await call("GET", `/recruit/${chat.id}/fit/c-meera`);
+    expect(fit.body.notes).toEqual([{ section: "Background", points: ["Five years at a payments gateway"] }]);
     expect(fit.body.pointers).toHaveLength(7);
     expect(fit.body.pointers.slice(0, 3)).toEqual(["Five years in payments", "Designed refund retries", "Built refunds herself"]);
     eleven.nextReply = "not json at all";
     expect((await call("GET", `/recruit/${chat.id}/fit/c-meera`)).body.pointers[0]).toBe("Five years in payments");
-    expect((await call("GET", `/recruit/${chat.id}/fit/c-sneha`)).body.pointers).toHaveLength(7);
+    const fallback = await call("GET", `/recruit/${chat.id}/fit/c-sneha`);
+    expect(fallback.body.pointers).toHaveLength(7);
+    expect(fallback.body.notes.map((n: any) => n.section)).toEqual(["Background", "What stood out", "To check", "Logistics"]);
     expect((await call("GET", `/recruit/${chat.id}/fit/c-tanvi`)).status).toBe(404);
 
     eleven.nextReply = JSON.stringify({ say: "Connecting you", action: { type: "connect", candidate_id: "c-meera", intro: "Meera, meet Ananya." } });
