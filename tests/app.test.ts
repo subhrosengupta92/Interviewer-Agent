@@ -369,9 +369,13 @@ describe("candidate chat", () => {
 describe("recruiter chat", () => {
   it("stores the job description, shows at most five real candidates with seven pointers each, and connects", async () => {
     const { body: chat } = await call("POST", "/recruit", { recruiter: "Ananya at Northwind Pay" });
+    expect(chat.greeting).toMatch(/^Hi Ananya 👋 Welcome to FirstRound/);
+    expect((await call("GET", `/recruit/${chat.id}`)).body.messages).toHaveLength(1);
     eleven.nextReply = JSON.stringify({ say: "JD ready", action: { type: "jd", jd: { title: "SDE-II", company: "Northwind Pay", location: "Bengaluru", salary: "₹32–42 LPA", experience: "3–6 years", summary: "s", responsibilities: ["a"], requirements: ["b"] } } });
     const j = await call("POST", `/recruit/${chat.id}/message`, { text: "hiring an SDE-II" });
     expect(j.body.reply.action).toMatchObject({ type: "jd", title: "SDE-II", url: `/jd?chat=${chat.id}` });
+    // Only the first message carries the note about the greeting.
+    expect(eleven.chats.at(-1)!.said[0]).toMatch(/^\[You have already greeted them with: "Hi Ananya/);
     expect((await call("GET", `/recruit/${chat.id}/jd`)).body.requirements).toEqual(["b"]);
 
     const picks = ["c-meera", "c-ghost", "c-sneha", "c-fatima", "c-arjun", "c-rahul", "c-divya", "c-meera"].map((id) => ({ id, why: "Built refunds herself" }));

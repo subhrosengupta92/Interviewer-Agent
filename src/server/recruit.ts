@@ -268,6 +268,9 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
     const body = (await request.json().catch(() => ({}))) as { recruiter?: string };
     const recruiter = str(body.recruiter).slice(0, 120) || "a hiring manager";
     const live = await livePool(d);
+    // FirstRound speaks first, so the screen never opens empty.
+    const first = recruiter.split(/\s+/)[0];
+    const greeting = `Hi${recruiter === "a hiring manager" ? " there" : ` ${first}`} 👋 Welcome to FirstRound. Who are you hiring? Tell me the role, or send a voice note.`;
     const chat: RecruitChat = {
       id: `recruit_${d.newId()}`,
       kind: "recruit",
@@ -275,7 +278,7 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
       recruiter,
       live,
       conversation_id: await d.eleven.openChat(d.agents.recruiter, { recruiter, live_pool: live.map(poolLine).join("\n") || "(none yet)" }),
-      messages: [],
+      messages: [{ from: "bot", text: greeting, action: null }],
       jd: null,
       fits: {},
       shown: {},
@@ -283,7 +286,7 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
       rounds: 0,
     };
     await d.store.putDoc(chat.id, chat);
-    return json({ id: chat.id }, 201);
+    return json({ id: chat.id, greeting }, 201);
   }
 
   const chat = await d.store.getDoc<RecruitChat>(parts[1] ?? "");
@@ -329,6 +332,9 @@ export async function handleRecruit(request: Request, parts: string[], d: Deps):
     if (file) text = `[job description uploaded]\n${file}`;
     if (!text) return json({ error: "Say something first." }, 400);
     chat.messages.push({ from: "user", text: file ? "[job description uploaded]" : text, kind: file ? "event" : kind });
+    // The agent did not write the opening greeting, so tell it once what was already said.
+    if (!chat.messages.some((m) => m.from === "user" && m !== chat.messages.at(-1)))
+      text = `[You have already greeted them with: "${chat.messages[0]?.text ?? ""}" Do not greet again; respond to what they say.]\n\n${text}`;
     // Anyone who finished a real interview since the last message joins the pool, and the agent is told.
     const known = new Set((chat.live ?? []).map((c) => c.id));
     const arrivals = (await livePool(d)).filter((c) => !known.has(c.id));

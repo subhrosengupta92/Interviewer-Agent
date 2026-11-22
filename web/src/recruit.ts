@@ -259,13 +259,15 @@ async function open(saved?: string) {
   }
   try {
     const who = [recruiter.name, recruiter.company].filter(Boolean).join(" at ");
-    chatId = (await api<{ id: string }>("/recruit", "POST", { recruiter: who })).id;
+    const opened = await api<{ id: string; greeting?: string }>("/recruit", "POST", { recruiter: who });
+    chatId = opened.id;
     try {
       localStorage.setItem(storeKey, JSON.stringify({ id: chatId, ...recruiter }));
     } catch {
       /* private window */
     }
-    chip("Tell FirstRound who you're hiring. You can type or send a voice note.");
+    if (opened.greeting) bubble("in", `<div class="txt">${esc(opened.greeting)}</div>`);
+    else chip("Tell FirstRound who you're hiring. You can type or send a voice note.");
   } catch (e) {
     chip(esc((e as Error).message));
   }
